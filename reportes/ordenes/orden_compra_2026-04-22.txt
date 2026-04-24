@@ -1,0 +1,11 @@
+==========================================
+         ORDEN DE COMPRA SUGERIDA         
+==========================================
+Fecha: 2026-04-22
+------------------------------------------
+Código          Producto                  Stock Act. Proveedor           
+------------------------------------------
+ART-099         Carretilla de obra 6 pies 3          N/A                 
+ART-100         Escalera aluminio 4 pasos 2          N/A                 
+ART-105         pala                      0          Genérico            
+==========================================

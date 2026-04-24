@@ -3,6 +3,8 @@ module com.ferreteria.ferreteriapro {
     requires javafx.fxml;
     requires java.sql;
     requires org.xerial.sqlitejdbc;
+    requires org.controlsfx.controls;
+    requires com.github.librepdf.openpdf;
 
     // Esto permite que JavaFX cargue tu interfaz
     opens com.ferreteria.ferreteriapro to javafx.fxml;

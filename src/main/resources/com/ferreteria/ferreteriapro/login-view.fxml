@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<VBox alignment="CENTER" spacing="20.0" style="-fx-background-color: #1e1e2e;" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.ferreteria.ferreteriapro.LoginController">
+    <padding>
+        <Insets bottom="40.0" left="40.0" right="40.0" top="40.0" />
+    </padding>
+
+    <Label text="FERRETERÍA PRO" textFill="#cba6f7">
+        <font>
+            <Font name="System Bold" size="28.0" />
+        </font>
+    </Label>
+    
+    <Label text="Acceso al Sistema" textFill="#a6adc8">
+        <font>
+            <Font size="16.0" />
+        </font>
+    </Label>
+
+    <VBox spacing="10.0">
+        <Label text="Usuario" textFill="#cdd6f4" />
+        <TextField fx:id="txtUsuario" promptText="Ingrese su usuario" style="-fx-background-color: #313244; -fx-text-fill: white; -fx-padding: 10;" />
+    </VBox>
+
+    <VBox spacing="10.0">
+        <Label text="Contraseña" textFill="#cdd6f4" />
+        <PasswordField fx:id="txtPassword" onAction="#onLoginClick" promptText="Ingrese su contraseña" style="-fx-background-color: #313244; -fx-text-fill: white; -fx-padding: 10;" />
+    </VBox>
+
+    <Button fx:id="btnLogin" maxWidth="Infinity" onAction="#onLoginClick" style="-fx-background-color: #cba6f7; -fx-text-fill: #1e1e2e; -fx-font-weight: bold; -fx-padding: 12; -fx-background-radius: 5; -fx-cursor: hand;" text="INICIAR SESIÓN" />
+    
+    <Label fx:id="lblMensaje" textFill="#f38ba8" wrapText="true" />
+
+</VBox>
