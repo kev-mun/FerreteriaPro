@@ -200,4 +200,8 @@ public class InventarioService {
     public List<CierreCaja> obtenerCierres() throws Exception {
         return cierreCajaDAO.listarTodo();
     }
+
+    public boolean revertirVenta(Venta v) throws Exception {
+        return ventaDAO.revertirVenta(v);
+    }
 }

@@ -54,13 +54,6 @@ public class VentaFlotanteController {
         public Producto getProducto()    { return producto; }
     }
 
-    public VentaFlotanteController(
-            InventarioService service,
-            List<?> proveedoresIgnorado,
-            Consumer<Void> onVentaCompletada) {
-        this(service, onVentaCompletada, null);
-    }
-
     /**
      * @param productoInicial producto pre-seleccionado (puede ser null).
      */
@@ -300,8 +293,11 @@ public class VentaFlotanteController {
             }
         });
 
-        tablaCarrito.getColumns().addAll(cNom, cPrecio, cSub, cAcciones);
-        tablaCarrito.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        tablaCarrito.getColumns().add(cNom);
+        tablaCarrito.getColumns().add(cPrecio);
+        tablaCarrito.getColumns().add(cSub);
+        tablaCarrito.getColumns().add(cAcciones);
+        tablaCarrito.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
 
         // ── Total ────────────────────────────────────────────────────────────
         lblTotal = new Label("TOTAL:  $ 0");

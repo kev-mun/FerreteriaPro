@@ -10,9 +10,12 @@ import javafx.stage.Stage;
 
 public class LoginController {
 
-    @FXML private TextField txtUsuario;
-    @FXML private PasswordField txtPassword;
-    @FXML private Label lblMensaje;
+    @FXML
+    private TextField txtUsuario;
+    @FXML
+    private PasswordField txtPassword;
+    @FXML
+    private Label lblMensaje;
 
     private final UsuarioDAO usuarioDAO = new UsuarioDAO();
 
@@ -20,7 +23,6 @@ public class LoginController {
     protected void onLoginClick() {
         String user = txtUsuario.getText().trim();
         String pass = txtPassword.getText().trim();
-
 
         if (user.isEmpty() || pass.isEmpty()) {
             lblMensaje.setText("Por favor complete todos los campos.");
@@ -46,7 +48,7 @@ public class LoginController {
             Stage stage = (Stage) txtUsuario.getScene().getWindow();
             FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("hello-view.fxml"));
             Scene scene = new Scene(fxmlLoader.load(), 1000, 750);
-            
+
             stage.setTitle("Ferretería Pro - " + Session.getCurrentUser().getNombre());
             stage.setScene(scene);
             stage.centerOnScreen();

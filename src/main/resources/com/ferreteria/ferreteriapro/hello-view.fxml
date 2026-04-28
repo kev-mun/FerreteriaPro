@@ -47,7 +47,7 @@
                             <TableColumn fx:id="colProveedor" text="Proveedor" prefWidth="120" />
                         </columns>
                         <columnResizePolicy>
-                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS" />
                         </columnResizePolicy>
                     </TableView>
                 </VBox>
@@ -126,6 +126,8 @@
                                 style="-fx-background-color: #673AB7; -fx-text-fill: white; -fx-font-weight: bold;"/>
                         <Button text="📊 Ganancias Totales" onAction="#onReporteGananciasClick" 
                                 style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                        <Button text="↩️ Revertir Venta" onAction="#onRevertirVentaClick" 
+                                style="-fx-background-color: #f38ba8; -fx-text-fill: white; -fx-font-weight: bold;"/>       
                     </HBox>
                     <TableView fx:id="tablaVentas" VBox.vgrow="ALWAYS">
                         <columns>
@@ -136,9 +138,10 @@
                             <TableColumn fx:id="colVentaTotal" text="Total" prefWidth="100" />
                             <TableColumn fx:id="colVentaMetodo" text="Pago" prefWidth="100" />
                             <TableColumn fx:id="colVentaUsuario" text="Cajero" prefWidth="120" />
+                            <TableColumn fx:id="colVentaEstado" text="Estado" prefWidth="100" />
                         </columns>
                         <columnResizePolicy>
-                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS" />
                         </columnResizePolicy>
                     </TableView>
                 </VBox>
@@ -169,7 +172,7 @@
                             <TableColumn fx:id="colEntradaUsuario" text="Responsable" prefWidth="120"/>
                         </columns>
                         <columnResizePolicy>
-                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS" />
                         </columnResizePolicy>
                     </TableView>
                 </VBox>
@@ -209,7 +212,7 @@
                             <TableColumn fx:id="colUsuarioRol" text="Rol" prefWidth="150" />
                         </columns>
                         <columnResizePolicy>
-                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS" />
                         </columnResizePolicy>
                     </TableView>
                 </VBox>
@@ -235,7 +238,7 @@
                             <TableColumn fx:id="colProvNombre" text="Nombre Empresa" prefWidth="400" />
                         </columns>
                         <columnResizePolicy>
-                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS" />
                         </columnResizePolicy>
                     </TableView>
                 </VBox>

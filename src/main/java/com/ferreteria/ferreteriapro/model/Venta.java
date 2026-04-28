@@ -11,7 +11,9 @@ public class Venta {
     private double costoUnitario;
     private String usuarioNombre;
 
-    public Venta(int id, String fecha, String productoCodigo, String productoNombre, int cantidad, double total, String metodoPago, double costoUnitario, String usuarioNombre) {
+    private String estado;
+
+    public Venta(int id, String fecha, String productoCodigo, String productoNombre, int cantidad, double total, String metodoPago, double costoUnitario, String usuarioNombre, String estado) {
         this.id = id;
         this.fecha = fecha;
         this.productoCodigo = productoCodigo;
@@ -21,6 +23,11 @@ public class Venta {
         this.metodoPago = metodoPago;
         this.costoUnitario = costoUnitario;
         this.usuarioNombre = usuarioNombre;
+        this.estado = estado;
+    }
+
+    public Venta(int id, String fecha, String productoCodigo, String productoNombre, int cantidad, double total, String metodoPago, double costoUnitario, String usuarioNombre) {
+        this(id, fecha, productoCodigo, productoNombre, cantidad, total, metodoPago, costoUnitario, usuarioNombre, "ACTIVA");
     }
 
     public Venta(String fecha, String productoCodigo, String productoNombre, int cantidad, double total, String metodoPago, double costoUnitario, String usuarioNombre) {
@@ -32,6 +39,7 @@ public class Venta {
         this.metodoPago = metodoPago;
         this.costoUnitario = costoUnitario;
         this.usuarioNombre = usuarioNombre;
+        this.estado = "ACTIVA";
     }
 
     public String getProductoNombre() { return productoNombre; }
@@ -43,4 +51,5 @@ public class Venta {
     public String getMetodoPago() { return metodoPago; }
     public double getCostoUnitario() { return costoUnitario; }
     public String getUsuarioNombre() { return usuarioNombre; }
+    public String getEstado() { return estado; }
 }

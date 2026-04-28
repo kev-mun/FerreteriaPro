@@ -13,7 +13,6 @@ import com.ferreteria.ferreteriapro.dao.UsuarioDAO;
 import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
-import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
@@ -22,7 +21,6 @@ import javafx.stage.Stage;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import org.controlsfx.control.SearchableComboBox;
-import javafx.util.Pair;
 import javafx.util.StringConverter;
 import java.io.File;
 import java.io.FileWriter;
@@ -74,7 +72,7 @@ public class HelloController {
     @FXML
     private TableColumn<Venta, Double> colVentaTotal;
     @FXML
-    private TableColumn<Venta, String> colVentaUsuario;
+    private TableColumn<Venta, String> colVentaUsuario, colVentaEstado;
 
     // --- ELEMENTOS DE ENTRADAS ---
     @FXML
@@ -211,48 +209,6 @@ public class HelloController {
                 seleccionado // puede ser null; el usuario busca dentro de la ventana
         );
         limpiarCampos();
-    }
-
-    private void generarFacturaDocumento(Producto p, int cant, double total, String metodo, double pago,
-            double cambio) {
-        String fecha = java.time.LocalDate.now().toString();
-        String idFactura = "FAC-" + System.currentTimeMillis();
-
-        // Crear carpeta si no existe
-        File carpeta = new File("facturas");
-        if (!carpeta.exists())
-            carpeta.mkdir();
-
-        File archivo = new File(carpeta, idFactura + ".txt");
-
-        try (PrintWriter out = new PrintWriter(new FileWriter(archivo))) {
-            out.println("==========================================");
-            out.println("           FERRETERÍA                     ");
-            out.println("        FACTURA DE VENTA                  ");
-            out.println("==========================================");
-            out.println("Fecha: " + fecha);
-            out.println("Factura No: " + idFactura);
-            out.println("------------------------------------------");
-            out.println(String.format("%-20s %-5s %-10s", "Producto", "Cantidad", "Total"));
-            out.println(String.format("%-20s %-5d $%,.0f", p.getNombre(), cant, total));
-            out.println("------------------------------------------");
-            out.println("Método de Pago: " + metodo);
-            out.println("Pagó con:       $ " + String.format("%,.0f", pago));
-            out.println("Cambio:         $ " + String.format("%,.0f", cambio));
-            out.println("==========================================");
-            out.println("      ¡Gracias por su compra!             ");
-            out.println("==========================================");
-
-            System.out.println("Factura generada: " + archivo.getAbsolutePath());
-            mostrarAlerta("Factura", "Documento guardado en: " + archivo.getName(), Alert.AlertType.INFORMATION);
-
-            // Abrir el archivo automáticamente (Opcional)
-            if (System.getProperty("os.name").toLowerCase().contains("win")) {
-                new ProcessBuilder("notepad.exe", archivo.getAbsolutePath()).start();
-            }
-        } catch (IOException e) {
-            mostrarAlerta("Error", "No se pudo guardar la factura: " + e.getMessage(), Alert.AlertType.ERROR);
-        }
     }
 
     // --- GESTIÓN DE INVENTARIO ---
@@ -795,7 +751,7 @@ public class HelloController {
 
         tablaStockBajo.getColumns().addAll(colCod, colNom, colStk, colProv);
         tablaStockBajo.setItems(listaStockBajo);
-        tablaStockBajo.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        tablaStockBajo.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
 
         javafx.scene.layout.VBox.setVgrow(tablaStockBajo, javafx.scene.layout.Priority.ALWAYS);
 
@@ -1063,6 +1019,25 @@ public class HelloController {
                 setText(e || p == null ? null : String.format("$ %,.0f", p));
             }
         });
+        colVentaEstado.setCellValueFactory(new PropertyValueFactory<>("estado"));
+        colVentaEstado.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(item);
+                    if ("ANULADA".equals(item)) {
+                        setStyle("-fx-text-fill: #f38ba8; -fx-font-weight: bold;");
+                    } else {
+                        setStyle("-fx-text-fill: #a6e3a1; -fx-font-weight: bold;");
+                    }
+                }
+            }
+        });
+        tablaVentas.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
     }
 
     @FXML
@@ -1070,8 +1045,83 @@ public class HelloController {
         try {
             listaVentas.setAll(service.obtenerVentas());
             tablaVentas.setItems(listaVentas);
+            tablaVentas.refresh();
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    @FXML
+    protected void onRevertirVentaClick() {
+        Venta seleccionada = tablaVentas.getSelectionModel().getSelectedItem();
+        if (seleccionada == null) {
+            mostrarAlerta("Atención", "Seleccione una venta para revertir.", Alert.AlertType.WARNING);
+            return;
+        }
+
+        if ("ANULADA".equals(seleccionada.getEstado())) {
+            mostrarAlerta("Error", "Esta venta ya ha sido anulada.", Alert.AlertType.ERROR);
+            return;
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirmar Reversión");
+        confirm.setHeaderText("¿Está seguro de anular la venta #" + seleccionada.getId() + "?");
+        confirm.setContentText("Esto devolverá " + seleccionada.getCantidad() + " unidades de '" +
+                seleccionada.getProductoNombre() + "' al inventario.");
+
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            try {
+                boolean exito = service.revertirVenta(seleccionada);
+                if (exito) {
+                    generarNotaCredito(seleccionada);
+                    actualizarHistorial();
+                    cargarDatos(); // Actualizar stock en la lista de productos
+                    mostrarAlerta("Éxito", "Venta anulada y stock restaurado.", Alert.AlertType.INFORMATION);
+                } else {
+                    mostrarAlerta("Error", "No se pudo revertir la venta.", Alert.AlertType.ERROR);
+                }
+            } catch (Exception e) {
+                mostrarAlerta("Error", "Ocurrió un error: " + e.getMessage(), Alert.AlertType.ERROR);
+            }
+        }
+    }
+
+    private void generarNotaCredito(Venta v) {
+        String fecha = LocalDate.now().toString();
+        String idNC = "NC-" + System.currentTimeMillis();
+
+        File carpeta = new File("facturas/notas_credito");
+        if (!carpeta.exists())
+            carpeta.mkdirs();
+        File archivo = new File(carpeta, idNC + ".txt");
+
+        try (PrintWriter out = new PrintWriter(new FileWriter(archivo))) {
+            out.println("==========================================");
+            out.println("           FERRETERÍA PRO                 ");
+            out.println("          NOTA DE CRÉDITO                 ");
+            out.println("==========================================");
+            out.println("Fecha:        " + fecha);
+            out.println("N.C. No:      " + idNC);
+            out.println("Ref. Venta:   #" + v.getId());
+            out.println("------------------------------------------");
+            out.println("DETALLE DE DEVOLUCIÓN:");
+            out.println(String.format("%-22s %6s %12s", "Producto", "Cant.", "Total Ext."));
+            out.println(String.format("%-22.22s %6d  $%,.0f",
+                    v.getProductoNombre(), v.getCantidad(), v.getTotal()));
+            out.println("------------------------------------------");
+            out.println(String.format("%-22s %6s  $%,.0f", "TOTAL A REVERTIR", "", v.getTotal()));
+            out.println("Motivo: Error en venta / Devolución");
+            out.println("==========================================");
+            out.println("      Comprobante de Anulación            ");
+            out.println("==========================================");
+
+            if (System.getProperty("os.name").toLowerCase().contains("win")) {
+                new ProcessBuilder("notepad.exe", archivo.getAbsolutePath()).start();
+            }
+        } catch (IOException e) {
+            System.err.println("No se pudo generar la nota de crédito: " + e.getMessage());
         }
     }
 
@@ -1177,6 +1227,8 @@ public class HelloController {
 
             double totalV = 0, totalC = 0, efectivo = 0, transferencia = 0;
             for (Venta v : todas) {
+                if ("ANULADA".equals(v.getEstado()))
+                    continue;
                 totalV += v.getTotal();
                 totalC += (v.getCostoUnitario() * v.getCantidad());
                 if ("Efectivo".equalsIgnoreCase(v.getMetodoPago()))
@@ -1203,6 +1255,8 @@ public class HelloController {
             java.util.Map<String, Double> totalPorProducto = new java.util.HashMap<>();
 
             for (Venta v : todas) {
+                if ("ANULADA".equals(v.getEstado()))
+                    continue;
                 String nom = v.getProductoNombre() != null ? v.getProductoNombre()
                         : "Desconocido (" + v.getProductoCodigo() + ")";
                 cantPorProducto.put(nom, cantPorProducto.getOrDefault(nom, 0) + v.getCantidad());
@@ -1283,6 +1337,8 @@ public class HelloController {
             double transferencia = 0;
 
             for (Venta v : ventas) {
+                if ("ANULADA".equals(v.getEstado()))
+                    continue;
                 totalVentas += v.getTotal();
                 totalCostos += (v.getCostoUnitario() * v.getCantidad());
                 if ("Efectivo".equalsIgnoreCase(v.getMetodoPago()))
@@ -1326,13 +1382,13 @@ public class HelloController {
         try {
             listaUsuarios.setAll(new UsuarioDAO().listarTodo());
             tablaUsuarios.setItems(listaUsuarios);
-            
+
             if (comboUsuarioRol.getItems().isEmpty()) {
                 comboUsuarioRol.setItems(FXCollections.observableArrayList("Administrador", "Vendedor"));
             }
-            
+
             configurarColumnasUsuarios();
-            
+
             tablaUsuarios.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
                 if (newSelection != null) {
                     txtUsuarioNombre.setText(newSelection.getNombre());
@@ -1370,7 +1426,8 @@ public class HelloController {
 
             if (seleccionado == null) {
                 // Nuevo
-                if (pass.isEmpty()) throw new Exception("La contraseña es obligatoria para nuevos usuarios.");
+                if (pass.isEmpty())
+                    throw new Exception("La contraseña es obligatoria para nuevos usuarios.");
                 dao.guardar(new Usuario(0, login, "", nombre, rol), pass);
             } else {
                 // Editar

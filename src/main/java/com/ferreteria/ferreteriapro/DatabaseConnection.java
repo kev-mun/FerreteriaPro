@@ -104,7 +104,8 @@ public class DatabaseConnection {
                         nombre TEXT UNIQUE NOT NULL
                     );
                     """);
-            stmt.execute("INSERT OR IGNORE INTO proveedores (nombre) VALUES ('Genérico'), ('Aceros S.A.'), ('FerreExpress'), ('Herramientas Pro');");
+            stmt.execute(
+                    "INSERT OR IGNORE INTO proveedores (nombre) VALUES ('Genérico'), ('Aceros S.A.'), ('FerreExpress'), ('Herramientas Pro');");
 
             // Crear tabla de usuarios
             stmt.executeUpdate("""
@@ -117,13 +118,16 @@ public class DatabaseConnection {
                     );
                     """);
 
-            // Sembrar usuarios iniciales con REPLACE para asegurar que la contraseña sea la correcta
-            // admin / admin123 (Hash detectado en sistema: 240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9)
+            // Sembrar usuarios iniciales con REPLACE para asegurar que la contraseña sea la
+            // correcta
+            // admin / admin123 (Hash detectado en sistema:
+            // 240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9)
             String adminHash = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";
             stmt.executeUpdate("REPLACE INTO usuarios (id, usuario, password_hash, nombre, rol) " +
                     "VALUES (1, 'admin', '" + adminHash + "', 'Administrador', 'Administrador');");
 
-            // vendedor / vendedor123 (Hash detectado: 56976bf24998ca63e35fe4f1e2469b5751d1856003e8d16fef0aafef496ed044)
+            // vendedor / vendedor123 (Hash detectado:
+            // 56976bf24998ca63e35fe4f1e2469b5751d1856003e8d16fef0aafef496ed044)
             String vendedorHash = "56976bf24998ca63e35fe4f1e2469b5751d1856003e8d16fef0aafef496ed044";
             stmt.executeUpdate("REPLACE INTO usuarios (id, usuario, password_hash, nombre, rol) " +
                     "VALUES (2, 'vendedor', '" + vendedorHash + "', 'Vendedor Test', 'Vendedor');");
@@ -131,37 +135,46 @@ public class DatabaseConnection {
             // Migraciones adicionales
             try {
                 stmt.execute("ALTER TABLE productos ADD COLUMN precio_compra REAL DEFAULT 0;");
-            } catch (SQLException e) {}
-            
+            } catch (SQLException e) {
+            }
+
             try {
                 stmt.execute("ALTER TABLE productos ADD COLUMN activo INTEGER DEFAULT 1;");
-            } catch (SQLException e) {}
-            
+            } catch (SQLException e) {
+            }
+
             try {
                 stmt.execute("ALTER TABLE ventas ADD COLUMN producto_nombre TEXT;");
-            } catch (SQLException e) {}
-            
+            } catch (SQLException e) {
+            }
+
             try {
                 stmt.execute("ALTER TABLE productos ADD COLUMN proveedor_nombre TEXT;");
-            } catch (SQLException e) {}
-            
+            } catch (SQLException e) {
+            }
+
             try {
                 stmt.execute("ALTER TABLE entradas_inventario ADD COLUMN proveedor TEXT;");
-            } catch (SQLException e) {}
+            } catch (SQLException e) {
+            }
 
             // Columnas de Auditoría
             try {
                 stmt.execute("ALTER TABLE ventas ADD COLUMN usuario_nombre TEXT;");
-            } catch (SQLException e) {}
+            } catch (SQLException e) {
+            }
             try {
                 stmt.execute("ALTER TABLE entradas_inventario ADD COLUMN usuario_nombre TEXT;");
-            } catch (SQLException e) {}
+            } catch (SQLException e) {
+            }
             try {
                 stmt.execute("ALTER TABLE historico_compras ADD COLUMN usuario_nombre TEXT;");
-            } catch (SQLException e) {}
+            } catch (SQLException e) {
+            }
             try {
                 stmt.execute("ALTER TABLE historico_ventas ADD COLUMN usuario_nombre TEXT;");
-            } catch (SQLException e) {}
+            } catch (SQLException e) {
+            }
 
             stmt.execute("PRAGMA journal_mode = WAL;");
             stmt.execute("PRAGMA synchronous = NORMAL;");

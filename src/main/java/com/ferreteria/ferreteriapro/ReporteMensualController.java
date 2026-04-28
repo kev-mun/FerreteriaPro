@@ -12,7 +12,6 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 
-import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -98,15 +97,23 @@ public class ReporteMensualController {
     private Tab crearTabResumen() {
         Tab tab = new Tab("📊 Resumen General y Finanzas");
         
-        double ingresosBrutos = ventasMes.stream().mapToDouble(Venta::getTotal).sum();
-        double costosTotales = ventasMes.stream().mapToDouble(v -> v.getCostoUnitario() * v.getCantidad()).sum();
+        double ingresosBrutos = ventasMes.stream()
+            .filter(v -> !"ANULADA".equals(v.getEstado()))
+            .mapToDouble(Venta::getTotal).sum();
+        double costosTotales = ventasMes.stream()
+            .filter(v -> !"ANULADA".equals(v.getEstado()))
+            .mapToDouble(v -> v.getCostoUnitario() * v.getCantidad()).sum();
         double utilidadNeta = ingresosBrutos - costosTotales;
         double margenGlobal = ingresosBrutos > 0 ? (utilidadNeta / ingresosBrutos) * 100 : 0;
         
-        int totalProductosVendidos = ventasMes.stream().mapToInt(Venta::getCantidad).sum();
+        int totalProductosVendidos = ventasMes.stream()
+            .filter(v -> !"ANULADA".equals(v.getEstado()))
+            .mapToInt(Venta::getCantidad).sum();
         
         // Calcular transacciones únicas basándonos en la fecha/hora (yyyy-MM-dd HH:mm:ss)
-        Set<String> transacciones = ventasMes.stream().map(Venta::getFecha).collect(Collectors.toSet());
+        Set<String> transacciones = ventasMes.stream()
+            .filter(v -> !"ANULADA".equals(v.getEstado()))
+            .map(Venta::getFecha).collect(Collectors.toSet());
         int numTransacciones = transacciones.size();
         
         double ticketPromedio = numTransacciones > 0 ? ingresosBrutos / numTransacciones : 0;
@@ -136,6 +143,7 @@ public class ReporteMensualController {
         
         // Agrupar por día (yyyy-MM-dd)
         Map<String, List<Venta>> porDia = ventasMes.stream()
+            .filter(v -> !"ANULADA".equals(v.getEstado()))
             .collect(Collectors.groupingBy(v -> v.getFecha().substring(0, 10)));
             
         VBox vbox = new VBox(15);
@@ -195,6 +203,7 @@ public class ReporteMensualController {
         Tab tab = new Tab("📦 Análisis de Productos");
         
         Map<String, List<Venta>> porProducto = ventasMes.stream()
+            .filter(v -> !"ANULADA".equals(v.getEstado()))
             .collect(Collectors.groupingBy(Venta::getProductoCodigo));
             
         class ProdInfo {
