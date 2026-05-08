@@ -38,9 +38,11 @@ public class VentaDAO {
     }
 
     public void guardar(Venta v) throws SQLException {
-        String sql = "INSERT INTO ventas (fecha, producto_codigo, producto_nombre, cantidad, total, metodo_pago, costo_unitario, usuario_nombre, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVA')";
+        String sql = "INSERT INTO ventas (fecha, producto_codigo, producto_nombre, cantidad, total, metodo_pago, costo_unitario, usuario_nombre, estado, cliente_id, cliente_nombre) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVA', ?, ?)";
         ejecutarUpdate(sql, v.getFecha(), v.getProductoCodigo(), v.getProductoNombre(), v.getCantidad(), v.getTotal(),
-                v.getMetodoPago(), v.getCostoUnitario(), v.getUsuarioNombre());
+                v.getMetodoPago(), v.getCostoUnitario(), v.getUsuarioNombre(), 
+                v.getClienteId() != null ? v.getClienteId() : Types.NULL, 
+                v.getClienteNombre() != null ? v.getClienteNombre() : Types.NULL);
     }
 
     private void ejecutarUpdate(String sql, Object... params) throws SQLException {
@@ -70,7 +72,9 @@ public class VentaDAO {
                         rs.getString("metodo_pago"),
                         rs.getDouble("costo_unitario"),
                         rs.getString("usuario_nombre"),
-                        rs.getString("estado")));
+                        rs.getString("estado"),
+                        rs.getObject("cliente_id") != null ? rs.getInt("cliente_id") : null,
+                        rs.getString("cliente_nombre")));
             }
         }
         return lista;
@@ -79,7 +83,7 @@ public class VentaDAO {
     // --- MÉTODOS REQUERIDOS POR INVENTARIOSERVICE ---
 
     public void archivarVentas(List<Venta> ventas) throws SQLException {
-        String sql = "INSERT INTO historico_ventas (fecha, producto_codigo, producto_nombre, cantidad, total, metodo_pago, costo_unitario, usuario_nombre, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVA')";
+        String sql = "INSERT INTO historico_ventas (fecha, producto_codigo, producto_nombre, cantidad, total, metodo_pago, costo_unitario, usuario_nombre, estado, cliente_id, cliente_nombre) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVA', ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection()) {
             conn.setAutoCommit(false);
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -92,6 +96,13 @@ public class VentaDAO {
                     pstmt.setString(6, v.getMetodoPago());
                     pstmt.setDouble(7, v.getCostoUnitario());
                     pstmt.setString(8, v.getUsuarioNombre());
+                    if (v.getClienteId() != null) {
+                        pstmt.setInt(9, v.getClienteId());
+                        pstmt.setString(10, v.getClienteNombre());
+                    } else {
+                        pstmt.setNull(9, Types.INTEGER);
+                        pstmt.setNull(10, Types.VARCHAR);
+                    }
                     pstmt.addBatch();
                 }
                 pstmt.executeBatch();
@@ -110,10 +121,10 @@ public class VentaDAO {
     public List<Venta> obtenerVentasPorMes(String mesAno) throws SQLException {
         List<Venta> lista = new ArrayList<>();
         String sql = "SELECT * FROM (" +
-                "  SELECT id, fecha, producto_codigo, producto_nombre, cantidad, total, metodo_pago, costo_unitario, usuario_nombre, estado FROM ventas "
+                "  SELECT id, fecha, producto_codigo, producto_nombre, cantidad, total, metodo_pago, costo_unitario, usuario_nombre, estado, cliente_id, cliente_nombre FROM ventas "
                 +
                 "  UNION ALL " +
-                "  SELECT id, fecha, producto_codigo, producto_nombre, cantidad, total, metodo_pago, costo_unitario, usuario_nombre, estado FROM historico_ventas "
+                "  SELECT id, fecha, producto_codigo, producto_nombre, cantidad, total, metodo_pago, costo_unitario, usuario_nombre, estado, cliente_id, cliente_nombre FROM historico_ventas "
                 +
                 ") AS combinadas " +
                 "WHERE fecha LIKE ? " +
@@ -134,7 +145,9 @@ public class VentaDAO {
                             rs.getString("metodo_pago"),
                             rs.getDouble("costo_unitario"),
                             rs.getString("usuario_nombre"),
-                            rs.getString("estado")));
+                            rs.getString("estado"),
+                            rs.getObject("cliente_id") != null ? rs.getInt("cliente_id") : null,
+                            rs.getString("cliente_nombre")));
                 }
             }
         }
@@ -165,6 +178,16 @@ public class VentaDAO {
                 try (PreparedStatement psNotif = conn.prepareStatement(sqlNotif)) {
                     psNotif.setString(1, "Venta #" + v.getId() + " (" + v.getProductoNombre() + ") anulada. Stock devuelto.");
                     psNotif.executeUpdate();
+                }
+
+                // 4. Si fue a crédito, restar del saldo del cliente
+                if ("Crédito".equalsIgnoreCase(v.getMetodoPago()) && v.getClienteId() != null) {
+                    String sqlSaldo = "UPDATE clientes SET saldo_pendiente = saldo_pendiente - ? WHERE id = ?";
+                    try (PreparedStatement psSaldo = conn.prepareStatement(sqlSaldo)) {
+                        psSaldo.setDouble(1, v.getTotal());
+                        psSaldo.setInt(2, v.getClienteId());
+                        psSaldo.executeUpdate();
+                    }
                 }
 
                 conn.commit();

@@ -5,11 +5,9 @@ module com.ferreteria.ferreteriapro {
     requires org.xerial.sqlitejdbc;
     requires org.controlsfx.controls;
     requires com.github.librepdf.openpdf;
+    requires java.desktop;
 
-    // Esto permite que JavaFX cargue tu interfaz
     opens com.ferreteria.ferreteriapro to javafx.fxml;
-
-    // ESTA LÍNEA ES LA QUE HACE QUE LA TABLA FUNCIONE
     opens com.ferreteria.ferreteriapro.model to javafx.base;
 
     exports com.ferreteria.ferreteriapro;

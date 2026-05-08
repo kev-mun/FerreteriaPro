@@ -11,7 +11,14 @@ import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
+import javafx.scene.chart.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.stage.FileChooser;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -19,7 +26,7 @@ public class ReporteMensualController {
 
     private final Stage stage;
     private final InventarioService service;
-    private final String mesAno; // Formato YYYY-MM
+    private final String mesAno;
     
     private List<Venta> ventasMes;
     private List<Producto> inventario;
@@ -28,10 +35,10 @@ public class ReporteMensualController {
         this.service = service;
         this.mesAno = mesAno;
         
-        stage = new Stage();
-        stage.setTitle("📊 Reporte Avanzado: " + mesAno);
-        stage.setMinWidth(900);
-        stage.setMinHeight(700);
+        this.stage = new Stage();
+        this.stage.setTitle("Reporte Mensual: " + mesAno);
+        this.stage.setMinWidth(950);
+        this.stage.setMinHeight(750);
         
         cargarDatosYMostrar();
     }
@@ -41,7 +48,7 @@ public class ReporteMensualController {
             ventasMes = service.obtenerVentasPorMes(mesAno);
             inventario = service.obtenerProductos();
             
-            if (ventasMes.isEmpty()) {
+            if (ventasMes == null || ventasMes.isEmpty()) {
                 Alert a = new Alert(Alert.AlertType.INFORMATION);
                 a.setTitle("Sin datos");
                 a.setHeaderText(null);
@@ -65,29 +72,34 @@ public class ReporteMensualController {
     private VBox construirUI() {
         VBox root = new VBox(20);
         root.setPadding(new Insets(20));
-        root.setStyle("-fx-background-color: #1e1e2e; -fx-text-fill: #cdd6f4;");
+        root.setStyle("-fx-background-color: #1e1e2e;");
 
-        Label lblTitulo = new Label("📈 Análisis Estratégico Mensual - " + mesAno);
+        Label lblTitulo = new Label("Analisis Mensual - " + mesAno);
         lblTitulo.setFont(Font.font("System", FontWeight.BOLD, 26));
         lblTitulo.setStyle("-fx-text-fill: #cba6f7;");
 
         TabPane tabPane = new TabPane();
         tabPane.setStyle("-fx-background-color: #313244;");
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        
         VBox.setVgrow(tabPane, Priority.ALWAYS);
         
         tabPane.getTabs().addAll(
             crearTabResumen(),
             crearTabVentasDiarias(),
-            crearTabAnalisisProductos()
+            crearTabGraficos(),
+            crearTabAnalisisProductos(),
+            crearTabListadoDetallado()
         );
         
-        Button btnCerrar = new Button("Cerrar Reporte");
-        btnCerrar.setStyle("-fx-background-color: #f38ba8; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20; -fx-background-radius: 5;");
+        Button btnPDF = new Button("Exportar PDF");
+        btnPDF.setStyle("-fx-background-color: #89b4fa; -fx-text-fill: #1e1e2e; -fx-font-weight: bold;");
+        btnPDF.setOnAction(e -> exportarAPDF());
+        
+        Button btnCerrar = new Button("Cerrar");
+        btnCerrar.setStyle("-fx-background-color: #f38ba8; -fx-text-fill: white;");
         btnCerrar.setOnAction(e -> stage.close());
         
-        HBox boxBotones = new HBox(btnCerrar);
+        HBox boxBotones = new HBox(15, btnPDF, btnCerrar);
         boxBotones.setAlignment(Pos.CENTER_RIGHT);
         
         root.getChildren().addAll(lblTitulo, tabPane, boxBotones);
@@ -95,239 +107,161 @@ public class ReporteMensualController {
     }
     
     private Tab crearTabResumen() {
-        Tab tab = new Tab("📊 Resumen General y Finanzas");
-        
-        double ingresosBrutos = ventasMes.stream()
-            .filter(v -> !"ANULADA".equals(v.getEstado()))
-            .mapToDouble(Venta::getTotal).sum();
-        double costosTotales = ventasMes.stream()
-            .filter(v -> !"ANULADA".equals(v.getEstado()))
-            .mapToDouble(v -> v.getCostoUnitario() * v.getCantidad()).sum();
-        double utilidadNeta = ingresosBrutos - costosTotales;
-        double margenGlobal = ingresosBrutos > 0 ? (utilidadNeta / ingresosBrutos) * 100 : 0;
-        
-        int totalProductosVendidos = ventasMes.stream()
-            .filter(v -> !"ANULADA".equals(v.getEstado()))
-            .mapToInt(Venta::getCantidad).sum();
-        
-        // Calcular transacciones únicas basándonos en la fecha/hora (yyyy-MM-dd HH:mm:ss)
-        Set<String> transacciones = ventasMes.stream()
-            .filter(v -> !"ANULADA".equals(v.getEstado()))
-            .map(Venta::getFecha).collect(Collectors.toSet());
-        int numTransacciones = transacciones.size();
-        
-        double ticketPromedio = numTransacciones > 0 ? ingresosBrutos / numTransacciones : 0;
+        Tab tab = new Tab("Resumen");
+        double ingresos = ventasMes.stream().filter(v -> !"ANULADA".equals(v.getEstado())).mapToDouble(Venta::getTotal).sum();
+        double costos = ventasMes.stream().filter(v -> !"ANULADA".equals(v.getEstado())).mapToDouble(v -> v.getCostoUnitario() * v.getCantidad()).sum();
         
         GridPane grid = new GridPane();
-        grid.setHgap(30);
-        grid.setVgap(20);
-        grid.setPadding(new Insets(30));
+        grid.setHgap(20); grid.setVgap(20); grid.setPadding(new Insets(20));
+        grid.add(crearTarjeta("Ingresos Brutos", "$ " + String.format("%,.0f", ingresos), "#a6e3a1"), 0, 0);
+        grid.add(crearTarjeta("Utilidad", "$ " + String.format("%,.0f", ingresos - costos), "#f9e2af"), 1, 0);
         
-        grid.add(crearTarjeta("Ingresos Brutos", "$ " + String.format("%,.0f", ingresosBrutos), "#a6e3a1"), 0, 0);
-        grid.add(crearTarjeta("Utilidad Neta", "$ " + String.format("%,.0f", utilidadNeta), "#f9e2af"), 1, 0);
-        grid.add(crearTarjeta("Margen Global", String.format("%.2f %%", margenGlobal), "#89b4fa"), 2, 0);
-        
-        grid.add(crearTarjeta("Total Transacciones", String.valueOf(numTransacciones), "#cba6f7"), 0, 1);
-        grid.add(crearTarjeta("Ticket Promedio", "$ " + String.format("%,.0f", ticketPromedio), "#f5c2e7"), 1, 1);
-        grid.add(crearTarjeta("Unidades Vendidas", String.valueOf(totalProductosVendidos), "#94e2d5"), 2, 1);
-        
-        ScrollPane scroll = new ScrollPane(grid);
-        scroll.setFitToWidth(true);
-        scroll.setStyle("-fx-background: #181825; -fx-border-color: transparent;");
-        tab.setContent(scroll);
+        tab.setContent(new ScrollPane(grid));
         return tab;
     }
     
     private Tab crearTabVentasDiarias() {
-        Tab tab = new Tab("📅 Ventas por Día");
-        
-        // Agrupar por día (yyyy-MM-dd)
+        Tab tab = new Tab("Ventas por Dia");
         Map<String, List<Venta>> porDia = ventasMes.stream()
             .filter(v -> !"ANULADA".equals(v.getEstado()))
             .collect(Collectors.groupingBy(v -> v.getFecha().substring(0, 10)));
             
         VBox vbox = new VBox(15);
         vbox.setPadding(new Insets(20));
-        vbox.setStyle("-fx-background-color: #181825;");
         
-        double maxVenta = -1;
-        String diaMax = "";
-        double minVenta = Double.MAX_VALUE;
-        String diaMin = "";
+        GridPane grid = new GridPane();
+        grid.setHgap(20); grid.setVgap(10);
+        grid.addRow(0, header("Dia"), header("Venta Total"));
         
-        GridPane gridDias = new GridPane();
-        gridDias.setHgap(20);
-        gridDias.setVgap(10);
-        gridDias.setStyle("-fx-background-color: #313244; -fx-padding: 15; -fx-background-radius: 8;");
-        
-        Label h1 = new Label("Día"); h1.setStyle("-fx-text-fill: #cba6f7; -fx-font-weight: bold;");
-        Label h2 = new Label("Ingresos"); h2.setStyle("-fx-text-fill: #cba6f7; -fx-font-weight: bold;");
-        Label h3 = new Label("Transacciones"); h3.setStyle("-fx-text-fill: #cba6f7; -fx-font-weight: bold;");
-        gridDias.addRow(0, h1, h2, h3);
-        
-        int row = 1;
-        List<String> diasOrdenados = new ArrayList<>(porDia.keySet());
-        Collections.sort(diasOrdenados);
-        
-        for (String dia : diasOrdenados) {
-            List<Venta> ventasDia = porDia.get(dia);
-            double totalDia = ventasDia.stream().mapToDouble(Venta::getTotal).sum();
-            int transDia = ventasDia.stream().map(Venta::getFecha).collect(Collectors.toSet()).size();
-            
-            if (totalDia > maxVenta) { maxVenta = totalDia; diaMax = dia; }
-            if (totalDia < minVenta) { minVenta = totalDia; diaMin = dia; }
-            
-            Label lDia = new Label(dia); lDia.setStyle("-fx-text-fill: #cdd6f4;");
-            Label lTot = new Label("$ " + String.format("%,.0f", totalDia)); lTot.setStyle("-fx-text-fill: #a6e3a1; -fx-font-weight: bold;");
-            Label lTrx = new Label(String.valueOf(transDia)); lTrx.setStyle("-fx-text-fill: #cdd6f4;");
-            
-            gridDias.addRow(row++, lDia, lTot, lTrx);
+        List<String> dias = new ArrayList<>(porDia.keySet());
+        Collections.sort(dias);
+        int r = 1;
+        for (String dia : dias) {
+            double total = porDia.get(dia).stream().mapToDouble(Venta::getTotal).sum();
+            grid.addRow(r++, celda(dia), celdaVerde("$ " + String.format("%,.0f", total)));
         }
         
-        HBox highlights = new HBox(30);
-        highlights.getChildren().addAll(
-            crearTarjeta("🔥 Día con mayor venta", diaMax + " ($ " + String.format("%,.0f", maxVenta) + ")", "#f38ba8"),
-            crearTarjeta("❄️ Día con menor venta", diaMin + " ($ " + String.format("%,.0f", minVenta) + ")", "#74c7ec")
-        );
+        vbox.getChildren().add(grid);
+        tab.setContent(new ScrollPane(vbox));
+        return tab;
+    }
+
+    private Tab crearTabGraficos() {
+        Tab tab = new Tab("Graficos");
+        VBox root = new VBox(20);
         
-        ScrollPane scroll = new ScrollPane(gridDias);
-        scroll.setFitToWidth(true);
-        VBox.setVgrow(scroll, Priority.ALWAYS);
+        CategoryAxis xAxis = new CategoryAxis();
+        NumberAxis yAxis = new NumberAxis();
+        LineChart<String, Number> lineChart = new LineChart<>(xAxis, yAxis);
+        lineChart.setTitle("Tendencia de Ventas");
         
-        vbox.getChildren().addAll(highlights, scroll);
-        tab.setContent(vbox);
+        XYChart.Series<String, Number> series = new XYChart.Series<>();
+        Map<String, Double> porDia = ventasMes.stream()
+            .filter(v -> !"ANULADA".equals(v.getEstado()))
+            .collect(Collectors.groupingBy(v -> v.getFecha().substring(8, 10), TreeMap::new, Collectors.summingDouble(Venta::getTotal)));
+        porDia.forEach((d, t) -> series.getData().add(new XYChart.Data<>(d, t)));
+        lineChart.getData().add(series);
+        
+        root.getChildren().add(lineChart);
+        tab.setContent(root);
         return tab;
     }
     
     private Tab crearTabAnalisisProductos() {
-        Tab tab = new Tab("📦 Análisis de Productos");
-        
-        Map<String, List<Venta>> porProducto = ventasMes.stream()
-            .filter(v -> !"ANULADA".equals(v.getEstado()))
-            .collect(Collectors.groupingBy(Venta::getProductoCodigo));
-            
-        class ProdInfo {
-            String codigo, nombre;
-            int unidades;
-            double ingresos, costos;
-        }
-        
-        List<ProdInfo> ranking = new ArrayList<>();
-        Set<String> codigosVendidos = new HashSet<>();
-        
-        for (Map.Entry<String, List<Venta>> entry : porProducto.entrySet()) {
-            ProdInfo p = new ProdInfo();
-            p.codigo = entry.getKey();
-            p.nombre = entry.getValue().get(0).getProductoNombre();
-            p.unidades = entry.getValue().stream().mapToInt(Venta::getCantidad).sum();
-            p.ingresos = entry.getValue().stream().mapToDouble(Venta::getTotal).sum();
-            p.costos = entry.getValue().stream().mapToDouble(v -> v.getCostoUnitario() * v.getCantidad()).sum();
-            ranking.add(p);
-            codigosVendidos.add(p.codigo);
-        }
-        
-        ranking.sort((a, b) -> Integer.compare(b.unidades, a.unidades)); // Descendente
-        
+        Tab tab = new Tab("Productos");
         VBox vbox = new VBox(20);
         vbox.setPadding(new Insets(20));
-        vbox.setStyle("-fx-background-color: #181825;");
         
-        Label lblTop = new Label("🌟 Top 10 Más Vendidos (por unidades)");
-        lblTop.setStyle("-fx-text-fill: #a6e3a1; -fx-font-weight: bold; -fx-font-size: 16px;");
-        
-        GridPane gridTop = new GridPane();
-        gridTop.setHgap(20); gridTop.setVgap(10);
-        gridTop.addRow(0, 
-            header("Producto"), header("Unidades"), header("Ingresos"), header("Margen")
-        );
-        
-        for (int i = 0; i < Math.min(10, ranking.size()); i++) {
-            ProdInfo p = ranking.get(i);
-            double util = p.ingresos - p.costos;
-            double mg = p.ingresos > 0 ? (util / p.ingresos) * 100 : 0;
+        Map<String, Integer> porUnidades = ventasMes.stream()
+            .filter(v -> !"ANULADA".equals(v.getEstado()))
+            .collect(Collectors.groupingBy(Venta::getProductoNombre, Collectors.summingInt(Venta::getCantidad)));
             
-            gridTop.addRow(i+1,
-                celda(p.nombre + " (" + p.codigo + ")"),
-                celda(String.valueOf(p.unidades)),
-                celdaVerde("$ " + String.format("%,.0f", p.ingresos)),
-                celda(String.format("%.1f%%", mg))
-            );
+        GridPane grid = new GridPane();
+        grid.setHgap(20); grid.setVgap(10);
+        grid.addRow(0, header("Producto"), header("Unidades Sold"));
+        
+        List<Map.Entry<String, Integer>> sorted = new ArrayList<>(porUnidades.entrySet());
+        sorted.sort((a,b) -> b.getValue().compareTo(a.getValue()));
+        
+        int r = 1;
+        for (Map.Entry<String, Integer> e : sorted) {
+            if (r > 15) break;
+            grid.addRow(r++, celda(e.getKey()), celda(String.valueOf(e.getValue())));
         }
         
-        // Menos vendidos (mayor que 0 pero baja rotación, invertimos la lista)
-        Label lblFlop = new Label("⚠️ Baja Rotación (Menos vendidos)");
-        lblFlop.setStyle("-fx-text-fill: #f9e2af; -fx-font-weight: bold; -fx-font-size: 16px;");
+        vbox.getChildren().add(grid);
+        tab.setContent(new ScrollPane(vbox));
+        return tab;
+    }
+
+    private Tab crearTabListadoDetallado() {
+        Tab tab = new Tab("Listado Completo");
+        TableView<Venta> tabla = new TableView<>();
         
-        GridPane gridFlop = new GridPane();
-        gridFlop.setHgap(20); gridFlop.setVgap(10);
-        gridFlop.addRow(0, header("Producto"), header("Unidades"), header("Ingresos"));
+        TableColumn<Venta, String> colF = new TableColumn<>("Fecha");
+        colF.setCellValueFactory(new PropertyValueFactory<>("fecha"));
+        TableColumn<Venta, String> colP = new TableColumn<>("Producto");
+        colP.setCellValueFactory(new PropertyValueFactory<>("productoNombre"));
+        TableColumn<Venta, Integer> colC = new TableColumn<>("Cant");
+        colC.setCellValueFactory(new PropertyValueFactory<>("cantidad"));
+        TableColumn<Venta, Double> colT = new TableColumn<>("Total");
+        colT.setCellValueFactory(new PropertyValueFactory<>("total"));
         
-        List<ProdInfo> inverso = new ArrayList<>(ranking);
-        inverso.sort(Comparator.comparingInt(a -> a.unidades)); // Ascendente
-        
-        for (int i = 0; i < Math.min(5, inverso.size()); i++) {
-            ProdInfo p = inverso.get(i);
-            gridFlop.addRow(i+1,
-                celda(p.nombre + " (" + p.codigo + ")"),
-                celda(String.valueOf(p.unidades)),
-                celda("$ " + String.format("%,.0f", p.ingresos))
-            );
-        }
-        
-        // Productos sin ventas
-        Label lblCero = new Label("🚫 Productos Sin Ventas en el Mes");
-        lblCero.setStyle("-fx-text-fill: #f38ba8; -fx-font-weight: bold; -fx-font-size: 16px;");
-        
-        String sinVentasText = inventario.stream()
-            .filter(inv -> !codigosVendidos.contains(inv.getCodigo()))
-            .map(inv -> inv.getNombre() + " (" + inv.getStock() + " en stock)")
-            .collect(Collectors.joining("\n"));
-            
-        TextArea txtCero = new TextArea(sinVentasText.isEmpty() ? "Todos los productos tuvieron ventas." : sinVentasText);
-        txtCero.setEditable(false);
-        txtCero.setPrefRowCount(5);
-        txtCero.setStyle("-fx-control-inner-background: #313244; -fx-text-fill: #cdd6f4;");
-        
-        ScrollPane scroll = new ScrollPane(new VBox(15, lblTop, gridTop, new Separator(), lblFlop, gridFlop, new Separator(), lblCero, txtCero));
-        scroll.setFitToWidth(true);
-        scroll.setStyle("-fx-background: #181825; -fx-border-color: transparent;");
-        VBox.setVgrow(scroll, Priority.ALWAYS);
-        
-        vbox.getChildren().add(scroll);
-        tab.setContent(vbox);
+        tabla.getColumns().addAll(colF, colP, colC, colT);
+        tabla.getItems().addAll(ventasMes);
+        tab.setContent(tabla);
         return tab;
     }
     
-    private VBox crearTarjeta(String titulo, String valor, String colorHex) {
-        VBox box = new VBox(10);
-        box.setPadding(new Insets(20));
-        box.setAlignment(Pos.CENTER);
-        box.setStyle("-fx-background-color: #313244; -fx-background-radius: 10; -fx-border-color: " + colorHex + "; -fx-border-width: 0 0 4 0; -fx-border-radius: 10;");
-        box.setMinWidth(250);
-        
-        Label lT = new Label(titulo);
-        lT.setStyle("-fx-text-fill: #a6adc8; -fx-font-size: 14px;");
-        
-        Label lV = new Label(valor);
-        lV.setStyle("-fx-text-fill: " + colorHex + "; -fx-font-size: 24px; -fx-font-weight: bold;");
-        
-        box.getChildren().addAll(lT, lV);
-        return box;
+    private VBox crearTarjeta(String titulo, String valor, String color) {
+        VBox b = new VBox(5);
+        b.setPadding(new Insets(15));
+        b.setStyle("-fx-background-color: #313244; -fx-border-color: " + color + "; -fx-border-width: 0 0 4 0;");
+        Label l1 = new Label(titulo); l1.setStyle("-fx-text-fill: #a6adc8;");
+        Label l2 = new Label(valor); l2.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 20; -fx-font-weight: bold;");
+        b.getChildren().addAll(l1, l2);
+        return b;
     }
     
-    private Label header(String t) {
-        Label l = new Label(t);
-        l.setStyle("-fx-text-fill: #cba6f7; -fx-font-weight: bold;");
-        return l;
-    }
-    private Label celda(String t) {
-        Label l = new Label(t);
-        l.setStyle("-fx-text-fill: #cdd6f4;");
-        return l;
-    }
-    private Label celdaVerde(String t) {
-        Label l = new Label(t);
-        l.setStyle("-fx-text-fill: #a6e3a1; -fx-font-weight: bold;");
-        return l;
+    private Label header(String t) { Label l = new Label(t); l.setStyle("-fx-text-fill: #cba6f7; -fx-font-weight: bold;"); return l; }
+    private Label celda(String t) { Label l = new Label(t); l.setStyle("-fx-text-fill: #cdd6f4;"); return l; }
+    private Label celdaVerde(String t) { Label l = new Label(t); l.setStyle("-fx-text-fill: #a6e3a1;"); return l; }
+
+    private void exportarAPDF() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Guardar PDF");
+        fileChooser.setInitialFileName("Reporte_" + mesAno + ".pdf");
+        File file = fileChooser.showSaveDialog(stage);
+        if (file == null) return;
+
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            com.lowagie.text.Document doc = new com.lowagie.text.Document(com.lowagie.text.PageSize.A4);
+            com.lowagie.text.pdf.PdfWriter.getInstance(doc, out);
+            doc.open();
+            
+            com.lowagie.text.Font fontT = com.lowagie.text.FontFactory.getFont(com.lowagie.text.FontFactory.HELVETICA_BOLD, 20);
+            doc.add(new com.lowagie.text.Paragraph("REPORTE MENSUAL - " + mesAno, fontT));
+            doc.add(new com.lowagie.text.Paragraph("Generado: " + LocalDateTime.now().toString()));
+            doc.add(new com.lowagie.text.Paragraph(" "));
+            
+            com.lowagie.text.pdf.PdfPTable table = new com.lowagie.text.pdf.PdfPTable(3);
+            table.addCell("Fecha"); table.addCell("Producto"); table.addCell("Total");
+            
+            for (Venta v : ventasMes) {
+                if (!"ANULADA".equals(v.getEstado())) {
+                    table.addCell(v.getFecha());
+                    table.addCell(v.getProductoNombre());
+                    table.addCell(String.valueOf(v.getTotal()));
+                }
+            }
+            doc.add(table);
+            doc.close();
+            
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setContentText("PDF generado en: " + file.getAbsolutePath());
+            alert.showAndWait();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

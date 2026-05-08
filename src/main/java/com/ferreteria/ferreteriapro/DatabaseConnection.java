@@ -118,6 +118,30 @@ public class DatabaseConnection {
                     );
                     """);
 
+            // Crear tabla de clientes
+            stmt.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clientes (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        documento TEXT UNIQUE,
+                        nombre TEXT NOT NULL,
+                        telefono TEXT,
+                        saldo_pendiente REAL DEFAULT 0
+                    );
+                    """);
+
+            // Crear tabla de abonos_credito
+            stmt.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS abonos_credito (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        cliente_id INTEGER NOT NULL,
+                        monto REAL NOT NULL,
+                        fecha TEXT NOT NULL,
+                        metodo_pago TEXT NOT NULL,
+                        usuario_nombre TEXT,
+                        FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+                    );
+                    """);
+
             // Sembrar usuarios iniciales con REPLACE para asegurar que la contraseña sea la
             // correcta
             // admin / admin123 (Hash detectado en sistema:
@@ -173,6 +197,24 @@ public class DatabaseConnection {
             }
             try {
                 stmt.execute("ALTER TABLE historico_ventas ADD COLUMN usuario_nombre TEXT;");
+            } catch (SQLException e) {
+            }
+            
+            // Migraciones de Cartera (Créditos)
+            try {
+                stmt.execute("ALTER TABLE ventas ADD COLUMN cliente_id INTEGER;");
+            } catch (SQLException e) {
+            }
+            try {
+                stmt.execute("ALTER TABLE ventas ADD COLUMN cliente_nombre TEXT;");
+            } catch (SQLException e) {
+            }
+            try {
+                stmt.execute("ALTER TABLE historico_ventas ADD COLUMN cliente_id INTEGER;");
+            } catch (SQLException e) {
+            }
+            try {
+                stmt.execute("ALTER TABLE historico_ventas ADD COLUMN cliente_nombre TEXT;");
             } catch (SQLException e) {
             }
 

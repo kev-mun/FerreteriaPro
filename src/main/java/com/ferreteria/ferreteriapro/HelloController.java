@@ -10,6 +10,15 @@ import javafx.collections.ObservableList;
 import com.ferreteria.ferreteriapro.model.Venta;
 import com.ferreteria.ferreteriapro.model.Usuario;
 import com.ferreteria.ferreteriapro.dao.UsuarioDAO;
+import com.ferreteria.ferreteriapro.model.Cliente;
+import com.ferreteria.ferreteriapro.model.Abono;
+import com.lowagie.text.Document;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.pdf.PdfWriter;
+import com.lowagie.text.Element;
+import com.lowagie.text.Font;
+import com.lowagie.text.FontFactory;
+import java.io.FileOutputStream;
 import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
@@ -110,6 +119,15 @@ public class HelloController {
     @FXML
     private ComboBox<String> comboUsuarioRol;
 
+    // --- ELEMENTOS DE CARTERA ---
+    @FXML private Tab tabCartera;
+    @FXML private TableView<Cliente> tablaClientes;
+    @FXML private TableColumn<Cliente, Integer> colClienteId;
+    @FXML private TableColumn<Cliente, String> colClienteDoc, colClienteNombre, colClienteTel;
+    @FXML private TableColumn<Cliente, Double> colClienteSaldo;
+    @FXML private TextField txtBuscadorCliente;
+    private final ObservableList<Cliente> listaClientes = FXCollections.observableArrayList();
+
     private final InventarioService service = new InventarioService();
     private final ObservableList<Producto> listaProductos = FXCollections.observableArrayList();
     private final ObservableList<Venta> listaVentas = FXCollections.observableArrayList();
@@ -138,6 +156,11 @@ public class HelloController {
             configurarColumnasProveedores();
             actualizarListaProveedores();
             configurarComboProveedorGestion();
+            
+            // Cartera
+            configurarColumnasClientes();
+            actualizarListaClientes();
+            configurarBuscadorClientes();
             nuevoRegistro();
         } catch (Exception e) {
             System.err.println("❌ Error en initialize de HelloController: " + e.getMessage());
@@ -1225,7 +1248,7 @@ public class HelloController {
                 return;
             }
 
-            double totalV = 0, totalC = 0, efectivo = 0, transferencia = 0;
+            double totalV = 0, totalC = 0, efectivo = 0, transferencia = 0, credito = 0;
             for (Venta v : todas) {
                 if ("ANULADA".equals(v.getEstado()))
                     continue;
@@ -1233,8 +1256,24 @@ public class HelloController {
                 totalC += (v.getCostoUnitario() * v.getCantidad());
                 if ("Efectivo".equalsIgnoreCase(v.getMetodoPago()))
                     efectivo += v.getTotal();
-                else
+                else if ("Transferencia".equalsIgnoreCase(v.getMetodoPago()))
                     transferencia += v.getTotal();
+                else if ("Crédito".equalsIgnoreCase(v.getMetodoPago()))
+                    credito += v.getTotal();
+            }
+            
+            // Sumar abonos recibidos hoy
+            List<Abono> abonosHoy = service.obtenerAbonosPorFecha(hoy, hoy);
+            double totalAbonosEf = 0;
+            double totalAbonosTr = 0;
+            for(Abono a : abonosHoy) {
+                if ("Efectivo".equalsIgnoreCase(a.getMetodoPago())) {
+                    totalAbonosEf += a.getMonto();
+                    efectivo += a.getMonto();
+                } else {
+                    totalAbonosTr += a.getMonto();
+                    transferencia += a.getMonto();
+                }
             }
 
             // 2. Guardar el resumen del cierre
@@ -1286,15 +1325,19 @@ public class HelloController {
                 out.println("--------------------------------------------------");
                 out.println(
                         String.format("%-25s %24s", "Ventas Totales (Bruto):", "$ " + String.format("%,.0f", totalV)));
+                out.println(String.format("%-25s %24s", "Ventas a Crédito (Fiado):", "$ " + String.format("%,.0f", credito)));
                 out.println(String.format("%-25s %24s", "Costo de Mercancía:", "$ " + String.format("%,.0f", totalC)));
                 out.println(
                         String.format("%-25s %24s", "UTILIDAD NETA:", "$ " + String.format("%,.0f", totalV - totalC)));
                 out.println("--------------------------------------------------");
                 out.println("           DESGLOSE POR MÉTODO DE PAGO            ");
+                out.println("          (Incluye Ventas Contado y Abonos)       ");
                 out.println("--------------------------------------------------");
-                out.println(String.format("%-25s %24s", "Efectivo:", "$ " + String.format("%,.0f", efectivo)));
+                out.println(String.format("%-25s %24s", "Total Abonos Recaudados:", "$ " + String.format("%,.0f", (totalAbonosEf + totalAbonosTr))));
+                out.println("--------------------------------------------------");
+                out.println(String.format("%-25s %24s", "Efectivo Físico en Caja:", "$ " + String.format("%,.0f", efectivo)));
                 out.println(
-                        String.format("%-25s %24s", "Transferencia:", "$ " + String.format("%,.0f", transferencia)));
+                        String.format("%-25s %24s", "Total en Bancos (Trans.):", "$ " + String.format("%,.0f", transferencia)));
                 out.println("==================================================");
                 out.println("        Cierre generado correctamente             ");
                 out.println("==================================================");
@@ -1483,5 +1526,264 @@ public class HelloController {
         a.setHeaderText(null);
         a.setContentText(m);
         a.showAndWait();
+    }
+        // ==========================================
+    // --- GESTIÓN DE CARTERA Y CLIENTES ---
+    // ==========================================
+
+    private void configurarColumnasClientes() {
+        colClienteId.setCellValueFactory(new PropertyValueFactory<>("id"));
+        colClienteDoc.setCellValueFactory(new PropertyValueFactory<>("documento"));
+        colClienteNombre.setCellValueFactory(new PropertyValueFactory<>("nombre"));
+        colClienteTel.setCellValueFactory(new PropertyValueFactory<>("telefono"));
+        colClienteSaldo.setCellValueFactory(new PropertyValueFactory<>("saldoPendiente"));
+        
+        // Formatear saldo
+        colClienteSaldo.setCellFactory(tc -> new TableCell<Cliente, Double>() {
+            @Override
+            protected void updateItem(Double saldo, boolean empty) {
+                super.updateItem(saldo, empty);
+                if (empty || saldo == null) {
+                    setText(null);
+                } else {
+                    setText("$ " + String.format("%,.0f", saldo));
+                    if (saldo > 0) {
+                        setStyle("-fx-text-fill: #f38ba8; -fx-font-weight: bold;"); // Rojo si debe
+                    } else {
+                        setStyle("-fx-text-fill: #a6e3a1; -fx-font-weight: bold;"); // Verde si no debe
+                    }
+                }
+            }
+        });
+    }
+
+    @FXML
+    protected void actualizarListaClientes() {
+        if (tabCartera != null && tabCartera.isSelected()) {
+            try {
+                listaClientes.setAll(service.obtenerClientes());
+                tablaClientes.setItems(listaClientes);
+            } catch (Exception e) {
+                mostrarAlerta("Error", "No se pudieron cargar los clientes: " + e.getMessage(), Alert.AlertType.ERROR);
+            }
+        }
+    }
+
+    private void configurarBuscadorClientes() {
+        if (txtBuscadorCliente != null) {
+            txtBuscadorCliente.textProperty().addListener((obs, oldText, newText) -> {
+                try {
+                    if (newText == null || newText.trim().isEmpty()) {
+                        actualizarListaClientes();
+                    } else {
+                        listaClientes.setAll(service.buscarClientes(newText.trim()));
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error al buscar cliente: " + e.getMessage());
+                }
+            });
+        }
+    }
+
+    @FXML
+    protected void onNuevoClienteClick() {
+        Dialog<Cliente> dialog = new Dialog<>();
+        dialog.setTitle("Nuevo Cliente");
+        dialog.setHeaderText("Ingrese los datos del nuevo cliente");
+
+        ButtonType btnGuardar = new ButtonType("Guardar", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(btnGuardar, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        TextField doc = new TextField();
+        doc.setPromptText("Documento/NIT");
+        TextField nom = new TextField();
+        nom.setPromptText("Nombre Completo");
+        TextField tel = new TextField();
+        tel.setPromptText("Teléfono");
+
+        grid.add(new Label("Documento:"), 0, 0);
+        grid.add(doc, 1, 0);
+        grid.add(new Label("Nombre:"), 0, 1);
+        grid.add(nom, 1, 1);
+        grid.add(new Label("Teléfono:"), 0, 2);
+        grid.add(tel, 1, 2);
+
+        dialog.getDialogPane().setContent(grid);
+        Platform.runLater(nom::requestFocus);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == btnGuardar) {
+                return new Cliente(doc.getText(), nom.getText(), tel.getText());
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(cliente -> {
+            try {
+                service.registrarCliente(cliente);
+                actualizarListaClientes();
+                mostrarAlerta("Éxito", "Cliente registrado correctamente.", Alert.AlertType.INFORMATION);
+            } catch (Exception e) {
+                mostrarAlerta("Error", "No se pudo registrar: " + e.getMessage(), Alert.AlertType.ERROR);
+            }
+        });
+    }
+
+    @FXML
+    protected void onRegistrarAbonoClick() {
+        Cliente cliente = tablaClientes.getSelectionModel().getSelectedItem();
+        if (cliente == null) {
+            mostrarAlerta("Atención", "Seleccione un cliente de la tabla.", Alert.AlertType.WARNING);
+            return;
+        }
+        if (cliente.getSaldoPendiente() <= 0) {
+            mostrarAlerta("Información", "Este cliente no tiene saldo pendiente.", Alert.AlertType.INFORMATION);
+            return;
+        }
+
+        // Seleccionar Método de Pago
+        ChoiceDialog<String> dMetodo = new ChoiceDialog<>("Efectivo", "Efectivo", "Transferencia");
+        dMetodo.setTitle("Registrar Abono - " + cliente.getNombre());
+        dMetodo.setHeaderText("Saldo Pendiente: $ " + String.format("%,.0f", cliente.getSaldoPendiente()));
+        dMetodo.setContentText("Seleccione cómo paga:");
+        var mRes = dMetodo.showAndWait();
+        if (mRes.isEmpty()) return;
+        String metodo = mRes.get();
+
+        // Monto
+        TextInputDialog dMonto = new TextInputDialog(String.format("%.0f", cliente.getSaldoPendiente()));
+        dMonto.setTitle("Registrar Abono");
+        dMonto.setHeaderText("¿Cuánto abona " + cliente.getNombre() + "?");
+        dMonto.setContentText("Monto:");
+        var res = dMonto.showAndWait();
+        if (res.isEmpty()) return;
+
+        try {
+            double montoAbono = Double.parseDouble(res.get().replace(",", ""));
+            if (montoAbono <= 0) throw new NumberFormatException();
+            if (montoAbono > cliente.getSaldoPendiente()) {
+                mostrarAlerta("Error", "El abono no puede ser mayor al saldo pendiente.", Alert.AlertType.ERROR);
+                return;
+            }
+
+            String fecha = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            String usuario = Session.getCurrentUser() != null ? Session.getCurrentUser().getNombre() : "Desconocido";
+            Abono abono = new Abono(cliente.getId(), montoAbono, fecha, metodo, usuario);
+
+            service.registrarAbono(abono);
+            actualizarListaClientes();
+            
+            // Generar Ticket
+            Alert alertTicket = new Alert(Alert.AlertType.CONFIRMATION);
+            alertTicket.setTitle("Abono Registrado");
+            alertTicket.setHeaderText("Abono de $ " + String.format("%,.0f", montoAbono) + " registrado con éxito.");
+            alertTicket.setContentText("¿Desea generar el comprobante (PDF) del abono?");
+            if (alertTicket.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
+                generarTicketAbono(abono, cliente, montoAbono);
+            }
+
+        } catch (NumberFormatException e) {
+            mostrarAlerta("Error", "Monto inválido.", Alert.AlertType.ERROR);
+        } catch (Exception e) {
+            mostrarAlerta("Error", "No se pudo registrar el abono: " + e.getMessage(), Alert.AlertType.ERROR);
+        }
+    }
+
+    private void generarTicketAbono(Abono abono, Cliente cliente, double montoAbono) {
+        String fechaActual = java.time.LocalDate.now().toString();
+        String idRecibo = "ABN-" + System.currentTimeMillis();
+        
+        File carpeta = new File("facturas/abonos");
+        if (!carpeta.exists()) carpeta.mkdirs();
+        File archivoPdf = new File(carpeta, idRecibo + ".pdf");
+
+        try {
+            Document document = new Document();
+            PdfWriter.getInstance(document, new FileOutputStream(archivoPdf));
+            document.open();
+
+            Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
+            Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 12);
+            Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
+
+            Paragraph titulo = new Paragraph("FERRETERÍA PRO\nCOMPROBANTE DE ABONO", fontTitulo);
+            titulo.setAlignment(Element.ALIGN_CENTER);
+            document.add(titulo);
+            document.add(new Paragraph("\n"));
+
+            document.add(new Paragraph("Recibo No: " + idRecibo, fontNormal));
+            document.add(new Paragraph("Fecha: " + abono.getFecha(), fontNormal));
+            document.add(new Paragraph("Cliente: " + cliente.getNombre(), fontBold));
+            document.add(new Paragraph("Documento: " + (cliente.getDocumento() != null ? cliente.getDocumento() : "N/A"), fontNormal));
+            document.add(new Paragraph("\n"));
+            
+            document.add(new Paragraph("Monto Abonado: $ " + String.format("%,.0f", montoAbono), fontBold));
+            document.add(new Paragraph("Método de Pago: " + abono.getMetodoPago(), fontNormal));
+            document.add(new Paragraph("Recibido por: " + abono.getUsuarioNombre(), fontNormal));
+            document.add(new Paragraph("\n"));
+            
+            double nuevoSaldo = cliente.getSaldoPendiente() - montoAbono;
+            document.add(new Paragraph("Saldo Pendiente Actualizado: $ " + String.format("%,.0f", nuevoSaldo), fontBold));
+            
+            document.add(new Paragraph("\n==========================================", fontNormal));
+            Paragraph footer = new Paragraph("¡Gracias por su pago!", fontNormal);
+            footer.setAlignment(Element.ALIGN_CENTER);
+            document.add(footer);
+
+            document.close();
+
+            if (System.getProperty("os.name").toLowerCase().contains("win")) {
+                new ProcessBuilder("cmd", "/c", "start", archivoPdf.getAbsolutePath()).start();
+            }
+        } catch (Exception e) {
+            mostrarAlerta("Error", "No se pudo generar el comprobante PDF: " + e.getMessage(), Alert.AlertType.ERROR);
+        }
+    }
+
+    @FXML
+    protected void onVerHistorialAbonosClick() {
+        Cliente cliente = tablaClientes.getSelectionModel().getSelectedItem();
+        if (cliente == null) {
+            mostrarAlerta("Atención", "Seleccione un cliente para ver su historial.", Alert.AlertType.WARNING);
+            return;
+        }
+        
+        try {
+            List<Abono> abonos = service.obtenerAbonosPorCliente(cliente.getId());
+            if (abonos.isEmpty()) {
+                mostrarAlerta("Información", "El cliente no tiene abonos registrados.", Alert.AlertType.INFORMATION);
+                return;
+            }
+            
+            StringBuilder sb = new StringBuilder();
+            sb.append(String.format("%-20s | %-12s | %s\n", "Fecha", "Monto", "Método"));
+            sb.append("--------------------------------------------------\n");
+            for (Abono a : abonos) {
+                sb.append(String.format("%-20s | $ %-10s | %s\n", 
+                        a.getFecha().substring(0, 16), 
+                        String.format("%,.0f", a.getMonto()), 
+                        a.getMetodoPago()));
+            }
+            
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Historial de Abonos");
+            alert.setHeaderText("Abonos de " + cliente.getNombre());
+            
+            TextArea textArea = new TextArea(sb.toString());
+            textArea.setEditable(false);
+            textArea.setWrapText(false);
+            textArea.setStyle("-fx-font-family: monospace;");
+            
+            alert.getDialogPane().setContent(textArea);
+            alert.showAndWait();
+            
+        } catch (Exception e) {
+             mostrarAlerta("Error", "Error al obtener abonos: " + e.getMessage(), Alert.AlertType.ERROR);
+        }
     }
 }

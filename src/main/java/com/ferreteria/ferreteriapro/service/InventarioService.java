@@ -10,6 +10,10 @@ import com.ferreteria.ferreteriapro.dao.ProveedorDAO;
 import com.ferreteria.ferreteriapro.model.Proveedor;
 import com.ferreteria.ferreteriapro.dao.CierreCajaDAO;
 import com.ferreteria.ferreteriapro.model.CierreCaja;
+import com.ferreteria.ferreteriapro.dao.ClienteDAO;
+import com.ferreteria.ferreteriapro.dao.AbonoDAO;
+import com.ferreteria.ferreteriapro.model.Cliente;
+import com.ferreteria.ferreteriapro.model.Abono;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.List;
@@ -22,6 +26,8 @@ public class InventarioService {
     private EntradaDAO entradaDAO = new EntradaDAO();
     private ProveedorDAO proveedorDAO = new ProveedorDAO();
     private CierreCajaDAO cierreCajaDAO = new CierreCajaDAO();
+    private ClienteDAO clienteDAO = new ClienteDAO();
+    private AbonoDAO abonoDAO = new AbonoDAO();
 
     public void registrarEntradaInventario(EntradaInventario e, double nuevoPrecio, boolean actualizarPrecio)
             throws Exception {
@@ -59,6 +65,10 @@ public class InventarioService {
 
     public void registrarVenta(Venta v) throws Exception {
         ventaDAO.guardar(v);
+        // Sumar al saldo del cliente si es a crédito
+        if ("Crédito".equalsIgnoreCase(v.getMetodoPago()) && v.getClienteId() != null) {
+            clienteDAO.actualizarSaldo(v.getClienteId(), v.getTotal());
+        }
     }
 
     public List<Venta> obtenerVentas() throws Exception {
@@ -203,5 +213,45 @@ public class InventarioService {
 
     public boolean revertirVenta(Venta v) throws Exception {
         return ventaDAO.revertirVenta(v);
+    }
+    
+    // --- GESTIÓN DE CARTERA (CLIENTES Y ABONOS) ---
+    
+    public void registrarCliente(Cliente c) throws Exception {
+        if (c.getNombre() == null || c.getNombre().trim().isEmpty()) {
+            throw new Exception("El nombre del cliente es obligatorio.");
+        }
+        clienteDAO.insertar(c);
+    }
+
+    public void editarCliente(Cliente c) throws Exception {
+        if (c.getNombre() == null || c.getNombre().trim().isEmpty()) {
+            throw new Exception("El nombre del cliente es obligatorio.");
+        }
+        clienteDAO.actualizar(c);
+    }
+
+    public List<Cliente> obtenerClientes() throws Exception {
+        return clienteDAO.listarTodo();
+    }
+    
+    public List<Cliente> buscarClientes(String termino) throws Exception {
+        return clienteDAO.buscar(termino);
+    }
+
+    public void registrarAbono(Abono a) throws Exception {
+        if (a.getMonto() <= 0) {
+            throw new Exception("El abono debe ser mayor a 0.");
+        }
+        abonoDAO.insertar(a);
+        clienteDAO.actualizarSaldo(a.getClienteId(), -a.getMonto());
+    }
+    
+    public List<Abono> obtenerAbonosPorCliente(int clienteId) throws Exception {
+        return abonoDAO.listarPorCliente(clienteId);
+    }
+    
+    public List<Abono> obtenerAbonosPorFecha(String fechaInicio, String fechaFin) throws Exception {
+        return abonoDAO.listarPorFecha(fechaInicio, fechaFin);
     }
 }

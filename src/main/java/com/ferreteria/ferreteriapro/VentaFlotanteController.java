@@ -2,6 +2,7 @@ package com.ferreteria.ferreteriapro;
 
 import com.ferreteria.ferreteriapro.model.Producto;
 import com.ferreteria.ferreteriapro.model.Venta;
+import com.ferreteria.ferreteriapro.model.Cliente;
 import com.ferreteria.ferreteriapro.service.InventarioService;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -45,13 +46,33 @@ public class VentaFlotanteController {
             this.cantidad = cantidad;
         }
 
-        public String getNombre()        { return producto.getNombre(); }
-        public String getCodigo()        { return producto.getCodigo(); }
-        public int    getCantidad()      { return cantidad; }
-        public void   setCantidad(int c) { this.cantidad = c; }
-        public double getPrecioUnitario(){ return producto.getPrecioVenta(); }
-        public double getSubtotal()      { return producto.getPrecioVenta() * cantidad; }
-        public Producto getProducto()    { return producto; }
+        public String getNombre() {
+            return producto.getNombre();
+        }
+
+        public String getCodigo() {
+            return producto.getCodigo();
+        }
+
+        public int getCantidad() {
+            return cantidad;
+        }
+
+        public void setCantidad(int c) {
+            this.cantidad = c;
+        }
+
+        public double getPrecioUnitario() {
+            return producto.getPrecioVenta();
+        }
+
+        public double getSubtotal() {
+            return producto.getPrecioVenta() * cantidad;
+        }
+
+        public Producto getProducto() {
+            return producto;
+        }
     }
 
     /**
@@ -97,13 +118,13 @@ public class VentaFlotanteController {
         txtBuscar.setPromptText("🔍  Buscar producto por nombre o código...");
         txtBuscar.setStyle(
                 "-fx-background-color: #313244; -fx-text-fill: #cdd6f4;" +
-                "-fx-prompt-text-fill: #6c7086; -fx-border-color: #89b4fa;" +
-                "-fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 8; -fx-font-size: 13px;");
+                        "-fx-prompt-text-fill: #6c7086; -fx-border-color: #89b4fa;" +
+                        "-fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 8; -fx-font-size: 13px;");
 
         Button btnAgregar = new Button("➕ Agregar");
         btnAgregar.setStyle(
                 "-fx-background-color: #89b4fa; -fx-text-fill: #1e1e2e;" +
-                "-fx-font-weight: bold; -fx-padding: 8 16; -fx-background-radius: 6; -fx-cursor: hand;");
+                        "-fx-font-weight: bold; -fx-padding: 8 16; -fx-background-radius: 6; -fx-cursor: hand;");
 
         HBox busquedaBox = new HBox(8, txtBuscar, btnAgregar);
         busquedaBox.setAlignment(Pos.CENTER_LEFT);
@@ -136,7 +157,10 @@ public class VentaFlotanteController {
 
         // Cargar todos los productos
         ObservableList<Producto> todos = FXCollections.observableArrayList();
-        try { todos.addAll(service.obtenerProductos()); } catch (Exception ignored) {}
+        try {
+            todos.addAll(service.obtenerProductos());
+        } catch (Exception ignored) {
+        }
 
         // Filtrar mientras escribe
         txtBuscar.textProperty().addListener((obs, old, val) -> {
@@ -145,8 +169,7 @@ public class VentaFlotanteController {
                 return;
             }
             String filtro = val.toLowerCase();
-            ObservableList<Producto> filtrados = todos.filtered(p ->
-                    p.getNombre().toLowerCase().contains(filtro) ||
+            ObservableList<Producto> filtrados = todos.filtered(p -> p.getNombre().toLowerCase().contains(filtro) ||
                     p.getCodigo().toLowerCase().contains(filtro));
 
             if (filtrados.isEmpty()) {
@@ -209,22 +232,23 @@ public class VentaFlotanteController {
         TableColumn<CarritoItem, Void> cAcciones = new TableColumn<>("Cantidad / Acciones");
         cAcciones.setPrefWidth(180);
         cAcciones.setCellFactory(col -> new TableCell<>() {
-            private final Button btnMenos  = new Button("−");
-            private final Button btnMas    = new Button("+");
-            private final Label  lblCant   = new Label();
+            private final Button btnMenos = new Button("−");
+            private final Button btnMas = new Button("+");
+            private final Label lblCant = new Label();
             private final Button btnEditar = new Button("✏");
-            private final Button btnDel    = new Button("✖");
-            private final HBox   box       = new HBox(4, btnMenos, lblCant, btnMas, btnEditar, btnDel);
+            private final Button btnDel = new Button("✖");
+            private final HBox box = new HBox(4, btnMenos, lblCant, btnMas, btnEditar, btnDel);
 
             {
                 box.setAlignment(javafx.geometry.Pos.CENTER);
 
                 String estBase = "-fx-font-weight:bold; -fx-padding:3 8; -fx-background-radius:5; -fx-cursor:hand;";
                 btnMenos.setStyle(estBase + "-fx-background-color:#89b4fa; -fx-text-fill:#1e1e2e;");
-                btnMas.setStyle(  estBase + "-fx-background-color:#a6e3a1; -fx-text-fill:#1e1e2e;");
+                btnMas.setStyle(estBase + "-fx-background-color:#a6e3a1; -fx-text-fill:#1e1e2e;");
                 btnEditar.setStyle(estBase + "-fx-background-color:#f9e2af; -fx-text-fill:#1e1e2e;");
-                btnDel.setStyle(  estBase + "-fx-background-color:#f38ba8; -fx-text-fill:white;");
-                lblCant.setStyle("-fx-text-fill:#cdd6f4; -fx-font-weight:bold; -fx-min-width:28; -fx-alignment:center;");
+                btnDel.setStyle(estBase + "-fx-background-color:#f38ba8; -fx-text-fill:white;");
+                lblCant.setStyle(
+                        "-fx-text-fill:#cdd6f4; -fx-font-weight:bold; -fx-min-width:28; -fx-alignment:center;");
 
                 btnMenos.setOnAction(e -> {
                     CarritoItem item = getTableView().getItems().get(getIndex());
@@ -353,24 +377,56 @@ public class VentaFlotanteController {
     }
 
     private void procesarCobro() {
-        if (carritoItems.isEmpty()) { error("No hay productos en el carrito."); return; }
+        if (carritoItems.isEmpty()) {
+            error("No hay productos en el carrito.");
+            return;
+        }
 
         double total = carritoItems.stream().mapToDouble(CarritoItem::getSubtotal).sum();
 
         // ── 1. Seleccionar método de pago ────────────────────────────────────
-        ChoiceDialog<String> dMetodo = new ChoiceDialog<>("Efectivo", "Efectivo", "Transferencia");
+        ChoiceDialog<String> dMetodo = new ChoiceDialog<>("Efectivo", "Efectivo", "Transferencia", "Crédito");
         dMetodo.setTitle("Método de Pago");
         dMetodo.setHeaderText("Total a cobrar:  $ " + String.format("%,.0f", total));
         dMetodo.setContentText("Seleccione método:");
         dMetodo.initOwner(stage);
         var mRes = dMetodo.showAndWait();
-        if (mRes.isEmpty()) return;
+        if (mRes.isEmpty())
+            return;
         String metodo = mRes.get();
 
         // ── 2. Ingresar monto (con bucle de corrección) ──────────────────────
         double pago = 0;
         double cambio = 0;
-        if ("Efectivo".equals(metodo)) {
+        Integer clienteId = null;
+        String clienteNombre = null;
+        
+        if ("Crédito".equals(metodo)) {
+            try {
+                List<Cliente> clientes = service.obtenerClientes();
+                if (clientes.isEmpty()) {
+                    error("No hay clientes registrados. Vaya a la pestaña 'Cartera' para registrar clientes antes de fiar.");
+                    return;
+                }
+                ChoiceDialog<Cliente> dCliente = new ChoiceDialog<>(clientes.get(0), clientes);
+                dCliente.setTitle("Venta a Crédito");
+                dCliente.setHeaderText("Seleccione el cliente a quien se le fiará:");
+                dCliente.setContentText("Cliente:");
+                dCliente.initOwner(stage);
+                var cRes = dCliente.showAndWait();
+                if (cRes.isEmpty()) return; // Canceló
+                
+                Cliente cliente = cRes.get();
+                clienteId = cliente.getId();
+                clienteNombre = cliente.getNombre();
+                pago = 0; // No entrega dinero ahora
+                cambio = 0;
+                
+            } catch (Exception e) {
+                error("Error al cargar clientes: " + e.getMessage());
+                return;
+            }
+        } else if ("Efectivo".equals(metodo)) {
             while (true) {
                 TextInputDialog dPago = new TextInputDialog(pago > 0 ? String.format("%.0f", pago) : "");
                 dPago.setTitle("Pago en Efectivo");
@@ -378,11 +434,13 @@ public class VentaFlotanteController {
                 dPago.setContentText("¿Con cuánto paga el cliente?");
                 dPago.initOwner(stage);
 
-                ButtonType btnVolver = new ButtonType("⬅ Cambiar método", javafx.scene.control.ButtonBar.ButtonData.BACK_PREVIOUS);
+                ButtonType btnVolver = new ButtonType("⬅ Cambiar método",
+                        javafx.scene.control.ButtonBar.ButtonData.BACK_PREVIOUS);
                 dPago.getDialogPane().getButtonTypes().add(btnVolver);
 
                 var pRes = dPago.showAndWait();
-                if (pRes.isEmpty()) return; // Canceló o presionó Volver → regresa al carrito
+                if (pRes.isEmpty())
+                    return; // Canceló o presionó Volver → regresa al carrito
 
                 try {
                     pago = Double.parseDouble(pRes.get().trim().replace(",", ""));
@@ -394,8 +452,8 @@ public class VentaFlotanteController {
                 if (pago < total) {
                     alertaAviso("Pago insuficiente",
                             "El cliente paga: $ " + String.format("%,.0f", pago) +
-                            "\nFaltan: $ " + String.format("%,.0f", total - pago) +
-                            "\n\nPresione OK para corregir el monto.");
+                                    "\nFaltan: $ " + String.format("%,.0f", total - pago) +
+                                    "\n\nPresione OK para corregir el monto.");
                     continue;
                 }
 
@@ -412,7 +470,10 @@ public class VentaFlotanteController {
                 "💵 Total: $ " + String.format("%,.0f", total);
         if ("Efectivo".equals(metodo)) {
             resumen += "\n💰 Pago recibido: $ " + String.format("%,.0f", pago) +
-                       "\n🪙 Cambio: $ " + String.format("%,.0f", cambio);
+                    "\n🪙 Cambio: $ " + String.format("%,.0f", cambio);
+        } else if ("Crédito".equals(metodo)) {
+            resumen += "\n👤 Cliente: " + clienteNombre +
+                    "\n⚠️ La deuda se sumará al saldo del cliente.";
         }
 
         Alert confirmacion = new Alert(Alert.AlertType.CONFIRMATION);
@@ -422,12 +483,15 @@ public class VentaFlotanteController {
         confirmacion.initOwner(stage);
 
         ButtonType btnConfirmar = new ButtonType("✅ Confirmar Venta");
-        ButtonType btnCorregirPago = new ButtonType("✏ Corregir Pago", javafx.scene.control.ButtonBar.ButtonData.BACK_PREVIOUS);
-        ButtonType btnCancelarVenta = new ButtonType("❌ Cancelar", javafx.scene.control.ButtonBar.ButtonData.CANCEL_CLOSE);
+        ButtonType btnCorregirPago = new ButtonType("✏ Corregir Pago",
+                javafx.scene.control.ButtonBar.ButtonData.BACK_PREVIOUS);
+        ButtonType btnCancelarVenta = new ButtonType("❌ Cancelar",
+                javafx.scene.control.ButtonBar.ButtonData.CANCEL_CLOSE);
         confirmacion.getButtonTypes().setAll(btnConfirmar, btnCorregirPago, btnCancelarVenta);
 
         var confRes = confirmacion.showAndWait();
-        if (confRes.isEmpty() || confRes.get() == btnCancelarVenta) return;
+        if (confRes.isEmpty() || confRes.get() == btnCancelarVenta)
+            return;
 
         // Si quiere corregir el pago, reiniciar desde el método de pago
         if (confRes.get() == btnCorregirPago) {
@@ -438,6 +502,9 @@ public class VentaFlotanteController {
         // ── 4. GUARDAR EN BD (solo si confirmó) ─────────────────────────────
         final double pagoFinal = pago;
         final double cambioFinal = cambio;
+        final Integer cId = clienteId;
+        final String cNombre = clienteNombre;
+        
         String fecha = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         String usuarioActual = Session.getCurrentUser() != null ? Session.getCurrentUser().getNombre() : "Desconocido";
         try {
@@ -445,8 +512,9 @@ public class VentaFlotanteController {
                 Producto p = item.getProducto();
                 p.setStock(p.getStock() - item.getCantidad());
                 service.editarProducto(p);
-                service.registrarVenta(new Venta(fecha, p.getCodigo(), p.getNombre(),
-                        item.getCantidad(), item.getSubtotal(), metodo, p.getPrecioCompra(), usuarioActual));
+                Venta v = new Venta(fecha, p.getCodigo(), p.getNombre(),
+                        item.getCantidad(), item.getSubtotal(), metodo, p.getPrecioCompra(), usuarioActual, cId, cNombre);
+                service.registrarVenta(v);
             }
 
             // ── 5. Oferta de factura ─────────────────────────────────────────
@@ -480,8 +548,11 @@ public class VentaFlotanteController {
 
     private void alertaAviso(String titulo, String mensaje) {
         Alert a = new Alert(Alert.AlertType.WARNING);
-        a.setTitle(titulo); a.setHeaderText(null); a.setContentText(mensaje);
-        a.initOwner(stage); a.showAndWait();
+        a.setTitle(titulo);
+        a.setHeaderText(null);
+        a.setContentText(mensaje);
+        a.initOwner(stage);
+        a.showAndWait();
     }
 
     private void generarFactura(double total, String metodo, double pago, double cambio) {
@@ -489,7 +560,8 @@ public class VentaFlotanteController {
         String idFactura = "FAC-" + System.currentTimeMillis();
 
         java.io.File carpeta = new java.io.File("facturas");
-        if (!carpeta.exists()) carpeta.mkdir();
+        if (!carpeta.exists())
+            carpeta.mkdir();
         java.io.File archivo = new java.io.File(carpeta, idFactura + ".txt");
 
         try (java.io.PrintWriter out = new java.io.PrintWriter(new java.io.FileWriter(archivo))) {
@@ -527,9 +599,14 @@ public class VentaFlotanteController {
 
     private void error(String msg) {
         Alert a = new Alert(Alert.AlertType.ERROR);
-        a.setTitle("Error"); a.setHeaderText(null); a.setContentText(msg);
-        a.initOwner(stage); a.showAndWait();
+        a.setTitle("Error");
+        a.setHeaderText(null);
+        a.setContentText(msg);
+        a.initOwner(stage);
+        a.showAndWait();
     }
 
-    public Stage getStage() { return stage; }
+    public Stage getStage() {
+        return stage;
+    }
 }
