@@ -1,33 +1,28 @@
 package com.ferreteria.ferreteriapro.service;
 
 import com.ferreteria.ferreteriapro.dao.ProductoDAO;
-import com.ferreteria.ferreteriapro.dao.VentaDAO;
 import com.ferreteria.ferreteriapro.dao.EntradaDAO;
+import com.ferreteria.ferreteriapro.dao.ProveedorDAO;
 import com.ferreteria.ferreteriapro.model.Producto;
 import com.ferreteria.ferreteriapro.model.Venta;
 import com.ferreteria.ferreteriapro.model.EntradaInventario;
-import com.ferreteria.ferreteriapro.dao.ProveedorDAO;
 import com.ferreteria.ferreteriapro.model.Proveedor;
-import com.ferreteria.ferreteriapro.dao.CierreCajaDAO;
 import com.ferreteria.ferreteriapro.model.CierreCaja;
-import com.ferreteria.ferreteriapro.dao.ClienteDAO;
-import com.ferreteria.ferreteriapro.dao.AbonoDAO;
 import com.ferreteria.ferreteriapro.model.Cliente;
 import com.ferreteria.ferreteriapro.model.Abono;
-import java.io.File;
-import java.io.FileOutputStream;
+
 import java.util.List;
-import com.lowagie.text.*;
-import com.lowagie.text.pdf.*;
 
 public class InventarioService {
-    private ProductoDAO productoDAO = new ProductoDAO();
-    private VentaDAO ventaDAO = new VentaDAO();
-    private EntradaDAO entradaDAO = new EntradaDAO();
-    private ProveedorDAO proveedorDAO = new ProveedorDAO();
-    private CierreCajaDAO cierreCajaDAO = new CierreCajaDAO();
-    private ClienteDAO clienteDAO = new ClienteDAO();
-    private AbonoDAO abonoDAO = new AbonoDAO();
+    private final ProductoDAO productoDAO = new ProductoDAO();
+    private final EntradaDAO entradaDAO = new EntradaDAO();
+    private final ProveedorDAO proveedorDAO = new ProveedorDAO();
+
+    // Delegación a servicios especializados
+    private final VentaService ventaService = new VentaService();
+    private final ReporteService reporteService = new ReporteService();
+
+    // --- LOGICA DE INVENTARIO Y CATALOGO ---
 
     public void registrarEntradaInventario(EntradaInventario e, double nuevoPrecio, boolean actualizarPrecio)
             throws Exception {
@@ -61,22 +56,6 @@ public class InventarioService {
 
     public List<EntradaInventario> obtenerEntradas() throws Exception {
         return entradaDAO.listarTodo();
-    }
-
-    public void registrarVenta(Venta v) throws Exception {
-        ventaDAO.guardar(v);
-        // Sumar al saldo del cliente si es a crédito
-        if ("Crédito".equalsIgnoreCase(v.getMetodoPago()) && v.getClienteId() != null) {
-            clienteDAO.actualizarSaldo(v.getClienteId(), v.getTotal());
-        }
-    }
-
-    public List<Venta> obtenerVentas() throws Exception {
-        return ventaDAO.listarTodo();
-    }
-
-    public List<Venta> obtenerVentasPorMes(String mesAno) throws Exception {
-        return ventaDAO.obtenerVentasPorMes(mesAno);
     }
 
     public List<Producto> obtenerProductos() throws Exception {
@@ -127,131 +106,75 @@ public class InventarioService {
         }
     }
 
-    public String procesarCierreMensual() throws Exception {
-        List<EntradaInventario> entradas = entradaDAO.listarTodo();
-        if (entradas.isEmpty()) {
-            throw new Exception("No hay registros para archivar este mes.");
-        }
+    // --- DELEGADOS A VENTASERVICE ---
 
-        // 1. Generar Reporte PDF
-        String fechaActual = java.time.LocalDate.now().toString();
-        File carpeta = new File("reportes/compras");
-        if (!carpeta.exists())
-            carpeta.mkdirs();
-
-        File archivoReporte = new File(carpeta, "reporte_compras_" + fechaActual + ".pdf");
-
-        Document document = new Document();
-        try (FileOutputStream out = new FileOutputStream(archivoReporte)) {
-            PdfWriter.getInstance(document, out);
-            document.open();
-
-            // Título
-            Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
-            Paragraph titulo = new Paragraph("REPORTE MENSUAL DE COMPRAS", fontTitulo);
-            titulo.setAlignment(Element.ALIGN_CENTER);
-            document.add(titulo);
-
-            document.add(new Paragraph("Fecha de Cierre: " + fechaActual));
-            document.add(new Paragraph(" ")); // Espacio
-
-            // Tabla
-            PdfPTable table = new PdfPTable(6);
-            table.setWidthPercentage(100);
-            table.addCell("Fecha");
-            table.addCell("Código");
-            table.addCell("Producto");
-            table.addCell("Proveedor");
-            table.addCell("Cant.");
-            table.addCell("Costo U.");
-
-            double totalInvertido = 0;
-            for (EntradaInventario e : entradas) {
-                String nombreProd = e.getProductoNombre() != null ? e.getProductoNombre() : "Desconocido";
-
-                table.addCell(e.getFecha());
-                table.addCell(e.getProductoCodigo());
-                table.addCell(nombreProd);
-                table.addCell(e.getProveedor() != null ? e.getProveedor() : "N/A");
-                table.addCell(String.valueOf(e.getCantidad()));
-                table.addCell(String.format("$%,.0f", e.getCostoUnitario()));
-                totalInvertido += (e.getCantidad() * e.getCostoUnitario());
-            }
-
-            document.add(table);
-            document.add(new Paragraph(" "));
-
-            Font fontTotal = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
-            Paragraph total = new Paragraph("TOTAL INVERTIDO EN EL MES: $ " + String.format("%,.0f", totalInvertido),
-                    fontTotal);
-            document.add(total);
-
-            document.close();
-        }
-
-        // 2. Mover a Histórico en DB
-        entradaDAO.archivarHistorico(entradas);
-
-        // 3. Limpiar tabla activa
-        entradaDAO.limpiarEntradas();
-
-        return archivoReporte.getAbsolutePath();
+    public void registrarVenta(Venta v) throws Exception {
+        ventaService.registrarVenta(v);
     }
 
-    public void registrarCierreCaja(CierreCaja c) throws Exception {
-        cierreCajaDAO.guardar(c);
+    public List<Venta> obtenerVentas() throws Exception {
+        return ventaService.obtenerVentas();
     }
 
-    public void archivarVentasYReiniciar(List<Venta> ventas) throws Exception {
-        ventaDAO.archivarVentas(ventas);
-        ventaDAO.limpiarVentas();
-    }
-
-    public List<CierreCaja> obtenerCierres() throws Exception {
-        return cierreCajaDAO.listarTodo();
+    public List<Venta> obtenerVentasPorMes(String mesAno) throws Exception {
+        return ventaService.obtenerVentasPorMes(mesAno);
     }
 
     public boolean revertirVenta(Venta v) throws Exception {
-        return ventaDAO.revertirVenta(v);
+        return ventaService.revertirVenta(v);
     }
-    
-    // --- GESTIÓN DE CARTERA (CLIENTES Y ABONOS) ---
-    
+
+    public void archivarVentasYReiniciar(List<Venta> ventas) throws Exception {
+        ventaService.archivarVentasYReiniciar(ventas);
+    }
+
     public void registrarCliente(Cliente c) throws Exception {
-        if (c.getNombre() == null || c.getNombre().trim().isEmpty()) {
-            throw new Exception("El nombre del cliente es obligatorio.");
-        }
-        clienteDAO.insertar(c);
+        ventaService.registrarCliente(c);
     }
 
     public void editarCliente(Cliente c) throws Exception {
-        if (c.getNombre() == null || c.getNombre().trim().isEmpty()) {
-            throw new Exception("El nombre del cliente es obligatorio.");
-        }
-        clienteDAO.actualizar(c);
+        ventaService.editarCliente(c);
     }
 
     public List<Cliente> obtenerClientes() throws Exception {
-        return clienteDAO.listarTodo();
+        return ventaService.obtenerClientes();
     }
-    
+
     public List<Cliente> buscarClientes(String termino) throws Exception {
-        return clienteDAO.buscar(termino);
+        return ventaService.buscarClientes(termino);
     }
 
     public void registrarAbono(Abono a) throws Exception {
-        if (a.getMonto() <= 0) {
-            throw new Exception("El abono debe ser mayor a 0.");
-        }
-        abonoDAO.insertar(a);
-        clienteDAO.actualizarSaldo(a.getClienteId(), -a.getMonto());
+        ventaService.registrarAbono(a);
     }
-    
+
     public List<Abono> obtenerAbonosPorCliente(int clienteId) throws Exception {
-        return abonoDAO.listarPorCliente(clienteId);
+        return ventaService.obtenerAbonosPorCliente(clienteId);
     }
-    
+
     public List<Abono> obtenerAbonosPorFecha(String fechaInicio, String fechaFin) throws Exception {
-        return abonoDAO.listarPorFecha(fechaInicio, fechaFin);
+        return ventaService.obtenerAbonosPorFecha(fechaInicio, fechaFin);
+    }
+
+    // --- DELEGADOS A REPORTESERVICE ---
+
+    public String procesarCierreMensual() throws Exception {
+        return reporteService.procesarCierreMensual();
+    }
+
+    public void registrarCierreCaja(CierreCaja c) throws Exception {
+        reporteService.registrarCierreCaja(c);
+    }
+
+    public List<CierreCaja> obtenerCierres() throws Exception {
+        return reporteService.obtenerCierres();
+    }
+
+    public CierreCaja obtenerUltimoCierre() throws Exception {
+        return reporteService.obtenerUltimoCierre();
+    }
+
+    public void abrirTurno(double baseInicial) throws Exception {
+        reporteService.abrirTurno(baseInicial);
     }
 }

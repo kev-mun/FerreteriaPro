@@ -199,7 +199,7 @@ public class DatabaseConnection {
                 stmt.execute("ALTER TABLE historico_ventas ADD COLUMN usuario_nombre TEXT;");
             } catch (SQLException e) {
             }
-            
+
             // Migraciones de Cartera (Créditos)
             try {
                 stmt.execute("ALTER TABLE ventas ADD COLUMN cliente_id INTEGER;");

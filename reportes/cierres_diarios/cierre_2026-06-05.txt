@@ -1,0 +1,36 @@
+==================================================
+          FERRETERÍA - CIERRE DE CAJA             
+==================================================
+Fecha y Hora: 2026-06-05 17:37:14
+Transacciones: 3
+--------------------------------------------------
+PRODUCTO                      CANT.     TOTAL ($)
+--------------------------------------------------
+Juego llaves Bristol x9 pzas      1        18.000
+Segueta con marco ajustable       1        15.000
+Nivel de aluminio 18 pulgada      1        29.000
+==================================================
+               RESUMEN FINANCIERO                 
+--------------------------------------------------
+Ventas Totales (Bruto):                   $ 62.000
+Ventas a Crédito (Fiado):                 $ 15.000
+Costo de Mercancía:                            $ 0
+UTILIDAD NETA:                            $ 62.000
+--------------------------------------------------
+           DESGLOSE POR MÉTODO DE PAGO            
+          (Incluye Ventas Contado y Abonos)       
+--------------------------------------------------
+Total Abonos Recaudados:                       $ 0
+--------------------------------------------------
+               CUENTAS DE EFECTIVO                
+--------------------------------------------------
+Base Inicial (Mañana):                         $ 0
+Efectivo Recaudado Hoy:                        $ 0
+Efectivo Esperado Total:                       $ 0
+Base Dejada (Mañana):                     $ 30.000
+EFECTIVO RETIRADO:                       $ -30.000
+--------------------------------------------------
+Total en Bancos (Trans.):                 $ 47.000
+==================================================
+        Cierre generado correctamente             
+==================================================

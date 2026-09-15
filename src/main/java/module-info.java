@@ -1,7 +1,8 @@
 module com.ferreteria.ferreteriapro {
     requires javafx.controls;
     requires javafx.fxml;
-    requires java.sql;
+    requires transitive javafx.graphics;
+    requires transitive java.sql;
     requires org.xerial.sqlitejdbc;
     requires org.controlsfx.controls;
     requires com.github.librepdf.openpdf;

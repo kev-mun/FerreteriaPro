@@ -10,7 +10,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -372,7 +371,7 @@ public class VentaFlotanteController {
     }
 
     private void actualizarTotal() {
-        double total = carritoItems.stream().mapToDouble(CarritoItem::getSubtotal).sum();
+        double total = carritoItems.stream().mapToDouble(item -> item.getSubtotal()).sum();
         lblTotal.setText("TOTAL:  $ " + String.format("%,.0f", total));
     }
 
@@ -382,11 +381,22 @@ public class VentaFlotanteController {
             return;
         }
 
-        double total = carritoItems.stream().mapToDouble(CarritoItem::getSubtotal).sum();
+        double total = carritoItems.stream().mapToDouble(item -> item.getSubtotal()).sum();
+
+        // Advertencia de límite de 5 UVT ($235.325 COP) para control interno
+        if (total > 235325) {
+            Alert alertUvt = new Alert(Alert.AlertType.WARNING);
+            alertUvt.setTitle("Límite de Operación Superado");
+            alertUvt.setHeaderText("Operación supera las 5 UVT ($235.325 COP)");
+            alertUvt.setContentText("El monto total ($" + String.format("%,.0f", total)
+                    + ") supera el límite legal establecido por la DIAN para documentos equivalentes o internos.\n\nSe recomienda emitir Factura Electrónica de Venta oficial.");
+            alertUvt.initOwner(stage);
+            alertUvt.showAndWait();
+        }
 
         // ── 1. Seleccionar método de pago ────────────────────────────────────
         ChoiceDialog<String> dMetodo = new ChoiceDialog<>("Efectivo", "Efectivo", "Transferencia", "Crédito");
-        dMetodo.setTitle("Método de Pago");
+        dMetodo.setTitle("Asignación de Flujo");
         dMetodo.setHeaderText("Total a cobrar:  $ " + String.format("%,.0f", total));
         dMetodo.setContentText("Seleccione método:");
         dMetodo.initOwner(stage);
@@ -400,7 +410,7 @@ public class VentaFlotanteController {
         double cambio = 0;
         Integer clienteId = null;
         String clienteNombre = null;
-        
+
         if ("Crédito".equals(metodo)) {
             try {
                 List<Cliente> clientes = service.obtenerClientes();
@@ -414,14 +424,15 @@ public class VentaFlotanteController {
                 dCliente.setContentText("Cliente:");
                 dCliente.initOwner(stage);
                 var cRes = dCliente.showAndWait();
-                if (cRes.isEmpty()) return; // Canceló
-                
+                if (cRes.isEmpty())
+                    return; // Canceló
+
                 Cliente cliente = cRes.get();
                 clienteId = cliente.getId();
                 clienteNombre = cliente.getNombre();
                 pago = 0; // No entrega dinero ahora
                 cambio = 0;
-                
+
             } catch (Exception e) {
                 error("Error al cargar clientes: " + e.getMessage());
                 return;
@@ -477,12 +488,12 @@ public class VentaFlotanteController {
         }
 
         Alert confirmacion = new Alert(Alert.AlertType.CONFIRMATION);
-        confirmacion.setTitle("Confirmar Venta");
-        confirmacion.setHeaderText("¿Confirmar y registrar la venta?");
+        confirmacion.setTitle("Registrar Operación Interna");
+        confirmacion.setHeaderText("¿Registrar comprobante de control interno?");
         confirmacion.setContentText(resumen);
         confirmacion.initOwner(stage);
 
-        ButtonType btnConfirmar = new ButtonType("✅ Confirmar Venta");
+        ButtonType btnConfirmar = new ButtonType("✅ Confirmar Registro");
         ButtonType btnCorregirPago = new ButtonType("✏ Corregir Pago",
                 javafx.scene.control.ButtonBar.ButtonData.BACK_PREVIOUS);
         ButtonType btnCancelarVenta = new ButtonType("❌ Cancelar",
@@ -504,7 +515,7 @@ public class VentaFlotanteController {
         final double cambioFinal = cambio;
         final Integer cId = clienteId;
         final String cNombre = clienteNombre;
-        
+
         String fecha = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         String usuarioActual = Session.getCurrentUser() != null ? Session.getCurrentUser().getNombre() : "Desconocido";
         try {
@@ -513,11 +524,12 @@ public class VentaFlotanteController {
                 p.setStock(p.getStock() - item.getCantidad());
                 service.editarProducto(p);
                 Venta v = new Venta(fecha, p.getCodigo(), p.getNombre(),
-                        item.getCantidad(), item.getSubtotal(), metodo, p.getPrecioCompra(), usuarioActual, cId, cNombre);
+                        item.getCantidad(), item.getSubtotal(), metodo, p.getPrecioCompra(), usuarioActual, cId,
+                        cNombre);
                 service.registrarVenta(v);
             }
 
-            // ── 5. Oferta de factura ─────────────────────────────────────────
+            // ── 5. Oferta de comprobante de control interno ──────────────────
             String msgExito = "✅ Venta registrada: $ " + String.format("%,.0f", total);
             if ("Efectivo".equals(metodo))
                 msgExito += "\n💰 Cambio: $ " + String.format("%,.0f", cambioFinal);
@@ -525,10 +537,10 @@ public class VentaFlotanteController {
             Alert alertFactura = new Alert(Alert.AlertType.CONFIRMATION);
             alertFactura.setTitle("Venta Exitosa");
             alertFactura.setHeaderText(msgExito);
-            alertFactura.setContentText("¿Desea generar la factura profesional?");
+            alertFactura.setContentText("¿Desea generar el comprobante de control interno?");
             alertFactura.initOwner(stage);
 
-            ButtonType btnSi = new ButtonType("📄 Generar Factura");
+            ButtonType btnSi = new ButtonType("📄 Generar Comprobante");
             ButtonType btnNo = new ButtonType("Solo Cerrar", javafx.scene.control.ButtonBar.ButtonData.CANCEL_CLOSE);
             alertFactura.getButtonTypes().setAll(btnSi, btnNo);
 
@@ -566,11 +578,11 @@ public class VentaFlotanteController {
 
         try (java.io.PrintWriter out = new java.io.PrintWriter(new java.io.FileWriter(archivo))) {
             out.println("==========================================");
-            out.println("           FERRETERÍA PRO                 ");
-            out.println("        FACTURA DE VENTA                  ");
+            out.println("           FERRETERÍA                     ");
+            out.println("   COMPROBANTE DE CONTROL INTERNO         ");
             out.println("==========================================");
-            out.println("Fecha:      " + fecha);
-            out.println("Factura No: " + idFactura);
+            out.println("Fecha:          " + fecha);
+            out.println("Comprobante No: " + idFactura);
             out.println("------------------------------------------");
             out.println(String.format("%-22s %6s %12s", "Producto", "Cant.", "Subtotal"));
             out.println("------------------------------------------");
@@ -588,12 +600,16 @@ public class VentaFlotanteController {
             out.println("==========================================");
             out.println("       ¡Gracias por su compra!            ");
             out.println("==========================================");
+            out.println("Documento para control interno. No        ");
+            out.println("constituye factura de venta ni soporte de ");
+            out.println("costos/deducciones.                       ");
+            out.println("==========================================");
 
             if (System.getProperty("os.name").toLowerCase().contains("win")) {
                 new ProcessBuilder("notepad.exe", archivo.getAbsolutePath()).start();
             }
         } catch (java.io.IOException e) {
-            error("No se pudo guardar la factura: " + e.getMessage());
+            error("No se pudo guardar el comprobante: " + e.getMessage());
         }
     }
 

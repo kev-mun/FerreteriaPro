@@ -4,6 +4,7 @@ import com.ferreteria.ferreteriapro.model.CierreCaja;
 import com.ferreteria.ferreteriapro.model.EntradaInventario;
 import com.ferreteria.ferreteriapro.model.Producto;
 import com.ferreteria.ferreteriapro.model.Proveedor;
+import com.ferreteria.ferreteriapro.service.BackupService;
 import com.ferreteria.ferreteriapro.service.InventarioService;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -25,7 +26,6 @@ import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
@@ -120,12 +120,18 @@ public class HelloController {
     private ComboBox<String> comboUsuarioRol;
 
     // --- ELEMENTOS DE CARTERA ---
-    @FXML private Tab tabCartera;
-    @FXML private TableView<Cliente> tablaClientes;
-    @FXML private TableColumn<Cliente, Integer> colClienteId;
-    @FXML private TableColumn<Cliente, String> colClienteDoc, colClienteNombre, colClienteTel;
-    @FXML private TableColumn<Cliente, Double> colClienteSaldo;
-    @FXML private TextField txtBuscadorCliente;
+    @FXML
+    private Tab tabCartera;
+    @FXML
+    private TableView<Cliente> tablaClientes;
+    @FXML
+    private TableColumn<Cliente, Integer> colClienteId;
+    @FXML
+    private TableColumn<Cliente, String> colClienteDoc, colClienteNombre, colClienteTel;
+    @FXML
+    private TableColumn<Cliente, Double> colClienteSaldo;
+    @FXML
+    private TextField txtBuscadorCliente;
     private final ObservableList<Cliente> listaClientes = FXCollections.observableArrayList();
 
     private final InventarioService service = new InventarioService();
@@ -140,6 +146,8 @@ public class HelloController {
     private Tab tabStockBajo;
     private TableView<Producto> tablaStockBajo;
     private final ObservableList<Producto> listaStockBajo = FXCollections.observableArrayList();
+    private double baseInicial = 0;
+    private boolean cajaAbierta = false;
 
     @FXML
     public void initialize() {
@@ -156,12 +164,15 @@ public class HelloController {
             configurarColumnasProveedores();
             actualizarListaProveedores();
             configurarComboProveedorGestion();
-            
+
             // Cartera
             configurarColumnasClientes();
             actualizarListaClientes();
             configurarBuscadorClientes();
             nuevoRegistro();
+
+            // Verificar la base inicial del día anterior
+            Platform.runLater(this::verificarBaseInicial);
         } catch (Exception e) {
             System.err.println("❌ Error en initialize de HelloController: " + e.getMessage());
             e.printStackTrace();
@@ -202,7 +213,7 @@ public class HelloController {
             Stage stage = (Stage) mainTabPane.getScene().getWindow();
             FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("login-view.fxml"));
             Scene scene = new Scene(fxmlLoader.load(), 400, 500);
-            stage.setTitle("Login - Ferretería Pro");
+            stage.setTitle("Login - Ferretería");
             stage.setScene(scene);
             stage.centerOnScreen();
         } catch (Exception e) {
@@ -212,6 +223,7 @@ public class HelloController {
 
     @FXML
     protected void onNuevaVentaFlotanteClick() {
+        if (!validarCajaAbierta()) return;
         new VentaFlotanteController(
                 service,
                 _v -> javafx.application.Platform.runLater(this::cargarDatos),
@@ -223,10 +235,11 @@ public class HelloController {
 
     @FXML
     protected void onSalidaClick() {
+        if (!validarCajaAbierta()) return;
         Producto seleccionado = tablaProductos.getSelectionModel().getSelectedItem();
         // Abrir ventana flotante no bloqueante. Si hay un producto seleccionado,
         // se añade automáticamente al carrito.
-        VentaFlotanteController ventana = new VentaFlotanteController(
+        new VentaFlotanteController(
                 service,
                 _v -> javafx.application.Platform.runLater(this::cargarDatos),
                 seleccionado // puede ser null; el usuario busca dentro de la ventana
@@ -750,6 +763,7 @@ public class HelloController {
 
     // --- LÓGICA STOCK BAJO ---
 
+    @SuppressWarnings("unchecked")
     private void crearTabStockBajo() {
         tabStockBajo = new Tab("🚨 Stock Bajo");
 
@@ -1122,11 +1136,11 @@ public class HelloController {
 
         try (PrintWriter out = new PrintWriter(new FileWriter(archivo))) {
             out.println("==========================================");
-            out.println("           FERRETERÍA PRO                 ");
-            out.println("          NOTA DE CRÉDITO                 ");
+            out.println("           FERRETERÍA                     ");
+            out.println("    COMPROBANTE DE AJUSTE INTERNO         ");
             out.println("==========================================");
             out.println("Fecha:        " + fecha);
-            out.println("N.C. No:      " + idNC);
+            out.println("Ajuste No:    " + idNC);
             out.println("Ref. Venta:   #" + v.getId());
             out.println("------------------------------------------");
             out.println("DETALLE DE DEVOLUCIÓN:");
@@ -1138,6 +1152,10 @@ public class HelloController {
             out.println("Motivo: Error en venta / Devolución");
             out.println("==========================================");
             out.println("      Comprobante de Anulación            ");
+            out.println("==========================================");
+            out.println("Documento para control interno. No        ");
+            out.println("constituye factura de venta ni soporte de ");
+            out.println("costos/deducciones.                       ");
             out.println("==========================================");
 
             if (System.getProperty("os.name").toLowerCase().contains("win")) {
@@ -1229,17 +1247,6 @@ public class HelloController {
     @FXML
     protected void onCerrarCajaClick() {
         try {
-            // 1. Confirmación obligatoria
-            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-            confirm.setTitle("Confirmar Cierre de Caja");
-            confirm.setHeaderText("¿Desea cerrar la caja y reiniciar las ventas?");
-            confirm.setContentText(
-                    "Esto archivará las ventas actuales y dejará el historial en cero para el nuevo día.");
-
-            Optional<ButtonType> res = confirm.showAndWait();
-            if (res.isEmpty() || res.get() != ButtonType.OK)
-                return;
-
             String hoy = LocalDate.now().toString();
             List<Venta> todas = service.obtenerVentas();
 
@@ -1261,12 +1268,12 @@ public class HelloController {
                 else if ("Crédito".equalsIgnoreCase(v.getMetodoPago()))
                     credito += v.getTotal();
             }
-            
+
             // Sumar abonos recibidos hoy
             List<Abono> abonosHoy = service.obtenerAbonosPorFecha(hoy, hoy);
             double totalAbonosEf = 0;
             double totalAbonosTr = 0;
-            for(Abono a : abonosHoy) {
+            for (Abono a : abonosHoy) {
                 if ("Efectivo".equalsIgnoreCase(a.getMetodoPago())) {
                     totalAbonosEf += a.getMonto();
                     efectivo += a.getMonto();
@@ -1276,9 +1283,88 @@ public class HelloController {
                 }
             }
 
+            double totalEfectivoDia = efectivo;
+            double totalTransferenciaDia = transferencia;
+
+            // --- DIÁLOGO DE CIERRE DINÁMICO ---
+            Dialog<ButtonType> dialog = new Dialog<>();
+            dialog.setTitle("Cierre de Caja Dinámico");
+            dialog.setHeaderText("Resumen y Ajuste de Caja");
+
+            ButtonType btnConfirmar = new ButtonType("Confirmar Cierre", ButtonBar.ButtonData.OK_DONE);
+            dialog.getDialogPane().getButtonTypes().addAll(btnConfirmar, ButtonType.CANCEL);
+
+            GridPane grid = new GridPane();
+            grid.setHgap(15);
+            grid.setVgap(12);
+            grid.setPadding(new Insets(20, 20, 20, 20));
+
+            double efectivoEsperado = baseInicial + totalEfectivoDia;
+
+            TextField txtBaseSiguiente = new TextField(String.format("%.0f", baseInicial));
+            Label lblRetiro = new Label();
+            lblRetiro.setStyle("-fx-font-weight: bold; -fx-text-fill: #27ae60; -fx-font-size: 14px;");
+
+            Runnable actualizarRetiro = () -> {
+                try {
+                    double baseSiguienteVal = parseMoney(txtBaseSiguiente.getText().trim());
+                    double retiro = (baseInicial + totalEfectivoDia) - baseSiguienteVal;
+                    lblRetiro.setText("Dinero físico a retirar del cajón: $ " + String.format("%,.0f", retiro));
+                } catch (Exception ex) {
+                    lblRetiro.setText("Monto inválido para base siguiente.");
+                }
+            };
+
+            txtBaseSiguiente.textProperty().addListener((o, ol, nv) -> actualizarRetiro.run());
+            actualizarRetiro.run(); // Cómputo inicial
+
+            grid.add(new Label("Base inicial de la mañana:"), 0, 0);
+            grid.add(new Label("$ " + String.format("%,.0f", baseInicial)), 1, 0);
+
+            grid.add(new Label("Ventas + Abonos (Efectivo) de hoy:"), 0, 1);
+            grid.add(new Label("$ " + String.format("%,.0f", totalEfectivoDia)), 1, 1);
+
+            grid.add(new Label("Ventas por Transferencia:"), 0, 2);
+            grid.add(new Label("$ " + String.format("%,.0f", totalTransferenciaDia)), 1, 2);
+
+            grid.add(new Label("Efectivo esperado total en caja:"), 0, 3);
+            grid.add(new Label("$ " + String.format("%,.0f", efectivoEsperado)), 1, 3);
+
+            grid.add(new Label("Base a dejar para mañana:"), 0, 4);
+            grid.add(txtBaseSiguiente, 1, 4);
+
+            grid.add(lblRetiro, 0, 5, 2, 1);
+
+            dialog.getDialogPane().setContent(grid);
+
+            // Validar que el valor sea correcto antes de cerrar el diálogo
+            final Button btConfirmar = (Button) dialog.getDialogPane().lookupButton(btnConfirmar);
+            btConfirmar.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
+                try {
+                    double baseSiguienteVal = parseMoney(txtBaseSiguiente.getText().trim());
+                    if (baseSiguienteVal < 0) {
+                        throw new Exception("La base siguiente no puede ser negativa.");
+                    }
+                } catch (Exception ex) {
+                    mostrarAlerta("Monto Inválido", "Por favor ingrese un monto válido (positivo o cero).", Alert.AlertType.WARNING);
+                    event.consume(); // Evita que se cierre
+                }
+            });
+
+            Optional<ButtonType> res = dialog.showAndWait();
+            if (res.isEmpty() || res.get() != btnConfirmar) {
+                return; // Cancelado
+            }
+
+            double baseSiguiente = parseMoney(txtBaseSiguiente.getText().trim());
+
             // 2. Guardar el resumen del cierre
-            CierreCaja cierre = new CierreCaja(hoy, totalV, totalC, totalV - totalC, efectivo, transferencia);
+            CierreCaja cierre = new CierreCaja(hoy, totalV, totalC, totalV - totalC, efectivo, transferencia, "CERRADO", baseInicial, baseSiguiente);
             service.registrarCierreCaja(cierre);
+            this.cajaAbierta = false;
+
+            // Respaldo Dual Inteligente de la Base de Datos
+            new BackupService().realizarRespaldoHibridoAsync();
 
             // 3. ARCHIVAR Y REINICIAR (Crucial)
             service.archivarVentasYReiniciar(todas);
@@ -1304,7 +1390,7 @@ public class HelloController {
 
             try (PrintWriter out = new PrintWriter(new FileWriter(archivo))) {
                 out.println("==================================================");
-                out.println("          FERRETERÍA PRO - CIERRE DE CAJA         ");
+                out.println("          FERRETERÍA - CIERRE DE CAJA             ");
                 out.println("==================================================");
                 out.println("Fecha y Hora: "
                         + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
@@ -1323,21 +1409,26 @@ public class HelloController {
                 out.println("==================================================");
                 out.println("               RESUMEN FINANCIERO                 ");
                 out.println("--------------------------------------------------");
-                out.println(
-                        String.format("%-25s %24s", "Ventas Totales (Bruto):", "$ " + String.format("%,.0f", totalV)));
+                out.println(String.format("%-25s %24s", "Ventas Totales (Bruto):", "$ " + String.format("%,.0f", totalV)));
                 out.println(String.format("%-25s %24s", "Ventas a Crédito (Fiado):", "$ " + String.format("%,.0f", credito)));
                 out.println(String.format("%-25s %24s", "Costo de Mercancía:", "$ " + String.format("%,.0f", totalC)));
-                out.println(
-                        String.format("%-25s %24s", "UTILIDAD NETA:", "$ " + String.format("%,.0f", totalV - totalC)));
+                out.println(String.format("%-25s %24s", "UTILIDAD NETA:", "$ " + String.format("%,.0f", totalV - totalC)));
                 out.println("--------------------------------------------------");
                 out.println("           DESGLOSE POR MÉTODO DE PAGO            ");
                 out.println("          (Incluye Ventas Contado y Abonos)       ");
                 out.println("--------------------------------------------------");
-                out.println(String.format("%-25s %24s", "Total Abonos Recaudados:", "$ " + String.format("%,.0f", (totalAbonosEf + totalAbonosTr))));
+                out.println(String.format("%-25s %24s", "Total Abonos Recaudados:",
+                        "$ " + String.format("%,.0f", (totalAbonosEf + totalAbonosTr))));
                 out.println("--------------------------------------------------");
-                out.println(String.format("%-25s %24s", "Efectivo Físico en Caja:", "$ " + String.format("%,.0f", efectivo)));
-                out.println(
-                        String.format("%-25s %24s", "Total en Bancos (Trans.):", "$ " + String.format("%,.0f", transferencia)));
+                out.println("               CUENTAS DE EFECTIVO                ");
+                out.println("--------------------------------------------------");
+                out.println(String.format("%-25s %24s", "Base Inicial (Mañana):", "$ " + String.format("%,.0f", baseInicial)));
+                out.println(String.format("%-25s %24s", "Efectivo Recaudado Hoy:", "$ " + String.format("%,.0f", efectivo)));
+                out.println(String.format("%-25s %24s", "Efectivo Esperado Total:", "$ " + String.format("%,.0f", efectivoEsperado)));
+                out.println(String.format("%-25s %24s", "Base Dejada (Mañana):", "$ " + String.format("%,.0f", baseSiguiente)));
+                out.println(String.format("%-25s %24s", "EFECTIVO RETIRADO:", "$ " + String.format("%,.0f", (efectivoEsperado - baseSiguiente))));
+                out.println("--------------------------------------------------");
+                out.println(String.format("%-25s %24s", "Total en Bancos (Trans.):", "$ " + String.format("%,.0f", transferencia)));
                 out.println("==================================================");
                 out.println("        Cierre generado correctamente             ");
                 out.println("==================================================");
@@ -1353,6 +1444,86 @@ public class HelloController {
             }
         } catch (Exception e) {
             mostrarAlerta("Error", "Error al cerrar caja: " + e.getMessage(), Alert.AlertType.ERROR);
+        }
+    }
+
+    private boolean validarCajaAbierta() {
+        if (this.cajaAbierta) {
+            return true;
+        }
+        try {
+            CierreCaja ultimo = service.obtenerUltimoCierre();
+            if (ultimo != null && "ABIERTO".equalsIgnoreCase(ultimo.getEstado())) {
+                this.cajaAbierta = true;
+                this.baseInicial = ultimo.getBaseInicial();
+                return true;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Si la caja no está abierta en memoria ni en BD, solicitar apertura obligatoria
+        verificarBaseInicial();
+        return this.cajaAbierta;
+    }
+
+    private void verificarBaseInicial() {
+        try {
+            CierreCaja ultimo = service.obtenerUltimoCierre();
+
+            if (ultimo != null && "ABIERTO".equalsIgnoreCase(ultimo.getEstado())) {
+                this.baseInicial = ultimo.getBaseInicial();
+                this.cajaAbierta = true;
+                System.out.println("✅ El turno ya se encuentra ABIERTO con base inicial: $" + this.baseInicial);
+                return; // Ingreso directo al panel principal con normalidad
+            }
+
+            // Si está CERRADO o no hay cierres anteriores: modal obligatorio de apertura
+            double sugerido = (ultimo != null && ultimo.getBaseSiguiente() > 0) ? ultimo.getBaseSiguiente() : 30000;
+            boolean confirmado = false;
+
+            while (!confirmado) {
+                TextInputDialog dialog = new TextInputDialog(String.format("%.0f", sugerido));
+                dialog.setTitle("Apertura de Caja Obligatoria");
+                dialog.setHeaderText("La caja se encuentra CERRADA.\nIngrese la Base Inicial en efectivo para abrir el turno:");
+                dialog.setContentText("Saldo base en efectivo ($):");
+
+                Optional<String> res = dialog.showAndWait();
+                if (res.isPresent()) {
+                    String input = res.get();
+                    String textoLimpio = input == null ? "" : input.replaceAll("[^0-9]", "");
+                    double base = textoLimpio.isEmpty() ? 0.0 : Double.parseDouble(textoLimpio);
+
+                    this.baseInicial = base;
+                    try {
+                        service.abrirTurno(this.baseInicial);
+                    } catch (Exception ex) {
+                        System.err.println("⚠️ Error al persistir abrirTurno en BD: " + ex.getMessage());
+                        ex.printStackTrace();
+                    }
+                    this.cajaAbierta = true;
+                    confirmado = true;
+
+                    Alert alertOk = new Alert(Alert.AlertType.INFORMATION);
+                    alertOk.setTitle("Apertura Exitosa");
+                    alertOk.setHeaderText(null);
+                    alertOk.setContentText("✅ Caja abierta correctamente con base inicial: $" + String.format("%,.0f", this.baseInicial) + " COP.");
+                    alertOk.showAndWait();
+                } else {
+                    Alert confirmSalir = new Alert(Alert.AlertType.CONFIRMATION);
+                    confirmSalir.setTitle("Apertura de Caja Requerida");
+                    confirmSalir.setHeaderText("Apertura Obligatoria");
+                    confirmSalir.setContentText("Debe ingresar la Base Inicial para poder operar. ¿Desea ingresar el monto de apertura?");
+                    Optional<ButtonType> optSalir = confirmSalir.showAndWait();
+                    if (optSalir.isEmpty() || optSalir.get() != ButtonType.OK) {
+                        mostrarAlerta("Caja Cerrada", "No se realizó la apertura. Las funciones de venta permanecerán bloqueadas.", Alert.AlertType.WARNING);
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error al verificar estado de caja y apertura: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -1527,7 +1698,7 @@ public class HelloController {
         a.setContentText(m);
         a.showAndWait();
     }
-        // ==========================================
+    // ==========================================
     // --- GESTIÓN DE CARTERA Y CLIENTES ---
     // ==========================================
 
@@ -1537,7 +1708,7 @@ public class HelloController {
         colClienteNombre.setCellValueFactory(new PropertyValueFactory<>("nombre"));
         colClienteTel.setCellValueFactory(new PropertyValueFactory<>("telefono"));
         colClienteSaldo.setCellValueFactory(new PropertyValueFactory<>("saldoPendiente"));
-        
+
         // Formatear saldo
         colClienteSaldo.setCellFactory(tc -> new TableCell<Cliente, Double>() {
             @Override
@@ -1652,7 +1823,8 @@ public class HelloController {
         dMetodo.setHeaderText("Saldo Pendiente: $ " + String.format("%,.0f", cliente.getSaldoPendiente()));
         dMetodo.setContentText("Seleccione cómo paga:");
         var mRes = dMetodo.showAndWait();
-        if (mRes.isEmpty()) return;
+        if (mRes.isEmpty())
+            return;
         String metodo = mRes.get();
 
         // Monto
@@ -1661,11 +1833,13 @@ public class HelloController {
         dMonto.setHeaderText("¿Cuánto abona " + cliente.getNombre() + "?");
         dMonto.setContentText("Monto:");
         var res = dMonto.showAndWait();
-        if (res.isEmpty()) return;
+        if (res.isEmpty())
+            return;
 
         try {
             double montoAbono = Double.parseDouble(res.get().replace(",", ""));
-            if (montoAbono <= 0) throw new NumberFormatException();
+            if (montoAbono <= 0)
+                throw new NumberFormatException();
             if (montoAbono > cliente.getSaldoPendiente()) {
                 mostrarAlerta("Error", "El abono no puede ser mayor al saldo pendiente.", Alert.AlertType.ERROR);
                 return;
@@ -1677,7 +1851,7 @@ public class HelloController {
 
             service.registrarAbono(abono);
             actualizarListaClientes();
-            
+
             // Generar Ticket
             Alert alertTicket = new Alert(Alert.AlertType.CONFIRMATION);
             alertTicket.setTitle("Abono Registrado");
@@ -1695,11 +1869,11 @@ public class HelloController {
     }
 
     private void generarTicketAbono(Abono abono, Cliente cliente, double montoAbono) {
-        String fechaActual = java.time.LocalDate.now().toString();
         String idRecibo = "ABN-" + System.currentTimeMillis();
-        
+
         File carpeta = new File("facturas/abonos");
-        if (!carpeta.exists()) carpeta.mkdirs();
+        if (!carpeta.exists())
+            carpeta.mkdirs();
         File archivoPdf = new File(carpeta, idRecibo + ".pdf");
 
         try {
@@ -1711,7 +1885,7 @@ public class HelloController {
             Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 12);
             Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
 
-            Paragraph titulo = new Paragraph("FERRETERÍA PRO\nCOMPROBANTE DE ABONO", fontTitulo);
+            Paragraph titulo = new Paragraph("FERRETERÍA\nCOMPROBANTE DE ABONO", fontTitulo);
             titulo.setAlignment(Element.ALIGN_CENTER);
             document.add(titulo);
             document.add(new Paragraph("\n"));
@@ -1719,21 +1893,29 @@ public class HelloController {
             document.add(new Paragraph("Recibo No: " + idRecibo, fontNormal));
             document.add(new Paragraph("Fecha: " + abono.getFecha(), fontNormal));
             document.add(new Paragraph("Cliente: " + cliente.getNombre(), fontBold));
-            document.add(new Paragraph("Documento: " + (cliente.getDocumento() != null ? cliente.getDocumento() : "N/A"), fontNormal));
+            document.add(new Paragraph(
+                    "Documento: " + (cliente.getDocumento() != null ? cliente.getDocumento() : "N/A"), fontNormal));
             document.add(new Paragraph("\n"));
-            
+
             document.add(new Paragraph("Monto Abonado: $ " + String.format("%,.0f", montoAbono), fontBold));
             document.add(new Paragraph("Método de Pago: " + abono.getMetodoPago(), fontNormal));
             document.add(new Paragraph("Recibido por: " + abono.getUsuarioNombre(), fontNormal));
             document.add(new Paragraph("\n"));
-            
+
             double nuevoSaldo = cliente.getSaldoPendiente() - montoAbono;
-            document.add(new Paragraph("Saldo Pendiente Actualizado: $ " + String.format("%,.0f", nuevoSaldo), fontBold));
-            
+            document.add(
+                    new Paragraph("Saldo Pendiente Actualizado: $ " + String.format("%,.0f", nuevoSaldo), fontBold));
+
             document.add(new Paragraph("\n==========================================", fontNormal));
             Paragraph footer = new Paragraph("¡Gracias por su pago!", fontNormal);
             footer.setAlignment(Element.ALIGN_CENTER);
             document.add(footer);
+
+            Paragraph leyenda = new Paragraph(
+                    "\nDocumento para control interno. No constituye factura de venta ni soporte de costos/deducciones.",
+                    fontNormal);
+            leyenda.setAlignment(Element.ALIGN_CENTER);
+            document.add(leyenda);
 
             document.close();
 
@@ -1752,38 +1934,38 @@ public class HelloController {
             mostrarAlerta("Atención", "Seleccione un cliente para ver su historial.", Alert.AlertType.WARNING);
             return;
         }
-        
+
         try {
             List<Abono> abonos = service.obtenerAbonosPorCliente(cliente.getId());
             if (abonos.isEmpty()) {
                 mostrarAlerta("Información", "El cliente no tiene abonos registrados.", Alert.AlertType.INFORMATION);
                 return;
             }
-            
+
             StringBuilder sb = new StringBuilder();
             sb.append(String.format("%-20s | %-12s | %s\n", "Fecha", "Monto", "Método"));
             sb.append("--------------------------------------------------\n");
             for (Abono a : abonos) {
-                sb.append(String.format("%-20s | $ %-10s | %s\n", 
-                        a.getFecha().substring(0, 16), 
-                        String.format("%,.0f", a.getMonto()), 
+                sb.append(String.format("%-20s | $ %-10s | %s\n",
+                        a.getFecha().substring(0, 16),
+                        String.format("%,.0f", a.getMonto()),
                         a.getMetodoPago()));
             }
-            
+
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("Historial de Abonos");
             alert.setHeaderText("Abonos de " + cliente.getNombre());
-            
+
             TextArea textArea = new TextArea(sb.toString());
             textArea.setEditable(false);
             textArea.setWrapText(false);
             textArea.setStyle("-fx-font-family: monospace;");
-            
+
             alert.getDialogPane().setContent(textArea);
             alert.showAndWait();
-            
+
         } catch (Exception e) {
-             mostrarAlerta("Error", "Error al obtener abonos: " + e.getMessage(), Alert.AlertType.ERROR);
+            mostrarAlerta("Error", "Error al obtener abonos: " + e.getMessage(), Alert.AlertType.ERROR);
         }
     }
 }

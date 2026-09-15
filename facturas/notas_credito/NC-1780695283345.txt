@@ -1,0 +1,21 @@
+==========================================
+           FERRETERÍA                     
+    COMPROBANTE DE AJUSTE INTERNO         
+==========================================
+Fecha:        2026-06-05
+Ajuste No:    NC-1780695283345
+Ref. Venta:   #59
+------------------------------------------
+DETALLE DE DEVOLUCIÓN:
+Producto                Cant.   Total Ext.
+Cuchara de albañil 8 p      1  $19.000
+------------------------------------------
+TOTAL A REVERTIR               $19.000
+Motivo: Error en venta / Devolución
+==========================================
+      Comprobante de Anulación            
+==========================================
+Documento para control interno. No        
+constituye factura de venta ni soporte de 
+costos/deducciones.                       
+==========================================

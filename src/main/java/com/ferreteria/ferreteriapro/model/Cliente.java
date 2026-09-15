@@ -19,16 +19,45 @@ public class Cliente {
         this(0, documento, nombre, telefono, 0.0);
     }
 
-    public int getId() { return id; }
-    public void setId(int id) { this.id = id; }
-    public String getDocumento() { return documento; }
-    public void setDocumento(String documento) { this.documento = documento; }
-    public String getNombre() { return nombre; }
-    public void setNombre(String nombre) { this.nombre = nombre; }
-    public String getTelefono() { return telefono; }
-    public void setTelefono(String telefono) { this.telefono = telefono; }
-    public double getSaldoPendiente() { return saldoPendiente; }
-    public void setSaldoPendiente(double saldoPendiente) { this.saldoPendiente = saldoPendiente; }
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getDocumento() {
+        return documento;
+    }
+
+    public void setDocumento(String documento) {
+        this.documento = documento;
+    }
+
+    public String getNombre() {
+        return nombre;
+    }
+
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
+
+    public String getTelefono() {
+        return telefono;
+    }
+
+    public void setTelefono(String telefono) {
+        this.telefono = telefono;
+    }
+
+    public double getSaldoPendiente() {
+        return saldoPendiente;
+    }
+
+    public void setSaldoPendiente(double saldoPendiente) {
+        this.saldoPendiente = saldoPendiente;
+    }
 
     @Override
     public String toString() {

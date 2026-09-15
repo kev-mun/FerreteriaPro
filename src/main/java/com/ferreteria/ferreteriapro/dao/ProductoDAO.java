@@ -62,7 +62,7 @@ public class ProductoDAO {
         return lista;
     }
     public int obtenerUltimoCodigoNumeric() throws SQLException {
-        String sql = "SELECT codigo FROM productos WHERE codigo LIKE 'ART-%' ORDER BY CAST(SUBSTR(codigo, 5) AS INTEGER) DESC LIMIT 1";
+        String sql = "SELECT codigo FROM productos WHERE codigo LIKE 'ART-%' AND activo = 1 ORDER BY CAST(SUBSTR(codigo, 5) AS INTEGER) DESC LIMIT 1";
         try (Connection conn = DatabaseConnection.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {

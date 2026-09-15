@@ -40,8 +40,8 @@ public class VentaDAO {
     public void guardar(Venta v) throws SQLException {
         String sql = "INSERT INTO ventas (fecha, producto_codigo, producto_nombre, cantidad, total, metodo_pago, costo_unitario, usuario_nombre, estado, cliente_id, cliente_nombre) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVA', ?, ?)";
         ejecutarUpdate(sql, v.getFecha(), v.getProductoCodigo(), v.getProductoNombre(), v.getCantidad(), v.getTotal(),
-                v.getMetodoPago(), v.getCostoUnitario(), v.getUsuarioNombre(), 
-                v.getClienteId() != null ? v.getClienteId() : Types.NULL, 
+                v.getMetodoPago(), v.getCostoUnitario(), v.getUsuarioNombre(),
+                v.getClienteId() != null ? v.getClienteId() : Types.NULL,
                 v.getClienteNombre() != null ? v.getClienteNombre() : Types.NULL);
     }
 
@@ -83,7 +83,7 @@ public class VentaDAO {
     // --- MÉTODOS REQUERIDOS POR INVENTARIOSERVICE ---
 
     public void archivarVentas(List<Venta> ventas) throws SQLException {
-        String sql = "INSERT INTO historico_ventas (fecha, producto_codigo, producto_nombre, cantidad, total, metodo_pago, costo_unitario, usuario_nombre, estado, cliente_id, cliente_nombre) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVA', ?, ?)";
+        String sql = "INSERT INTO historico_ventas (fecha, producto_codigo, producto_nombre, cantidad, total, metodo_pago, costo_unitario, usuario_nombre, estado, cliente_id, cliente_nombre) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection()) {
             conn.setAutoCommit(false);
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -96,12 +96,13 @@ public class VentaDAO {
                     pstmt.setString(6, v.getMetodoPago());
                     pstmt.setDouble(7, v.getCostoUnitario());
                     pstmt.setString(8, v.getUsuarioNombre());
+                    pstmt.setString(9, v.getEstado() != null ? v.getEstado() : "ACTIVA");
                     if (v.getClienteId() != null) {
-                        pstmt.setInt(9, v.getClienteId());
-                        pstmt.setString(10, v.getClienteNombre());
+                        pstmt.setInt(10, v.getClienteId());
+                        pstmt.setString(11, v.getClienteNombre());
                     } else {
-                        pstmt.setNull(9, Types.INTEGER);
-                        pstmt.setNull(10, Types.VARCHAR);
+                        pstmt.setNull(10, Types.INTEGER);
+                        pstmt.setNull(11, Types.VARCHAR);
                     }
                     pstmt.addBatch();
                 }
@@ -176,7 +177,8 @@ public class VentaDAO {
                 // 3. Notificación
                 String sqlNotif = "INSERT INTO notificaciones (mensaje) VALUES (?)";
                 try (PreparedStatement psNotif = conn.prepareStatement(sqlNotif)) {
-                    psNotif.setString(1, "Venta #" + v.getId() + " (" + v.getProductoNombre() + ") anulada. Stock devuelto.");
+                    psNotif.setString(1,
+                            "Venta #" + v.getId() + " (" + v.getProductoNombre() + ") anulada. Stock devuelto.");
                     psNotif.executeUpdate();
                 }
 

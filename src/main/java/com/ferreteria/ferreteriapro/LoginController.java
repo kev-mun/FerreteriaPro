@@ -1,6 +1,5 @@
 package com.ferreteria.ferreteriapro;
 
-import com.ferreteria.ferreteriapro.dao.UsuarioDAO;
 import com.ferreteria.ferreteriapro.model.Usuario;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -17,7 +16,7 @@ public class LoginController {
     @FXML
     private Label lblMensaje;
 
-    private final UsuarioDAO usuarioDAO = new UsuarioDAO();
+    private final com.ferreteria.ferreteriapro.service.UsuarioService usuarioService = new com.ferreteria.ferreteriapro.service.UsuarioService();
 
     @FXML
     protected void onLoginClick() {
@@ -30,7 +29,7 @@ public class LoginController {
         }
 
         try {
-            Usuario u = usuarioDAO.login(user, pass);
+            Usuario u = usuarioService.login(user, pass);
             if (u != null) {
                 Session.setCurrentUser(u);
                 abrirVentanaPrincipal();
@@ -49,7 +48,7 @@ public class LoginController {
             FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("hello-view.fxml"));
             Scene scene = new Scene(fxmlLoader.load(), 1000, 750);
 
-            stage.setTitle("Ferretería Pro - " + Session.getCurrentUser().getNombre());
+            stage.setTitle("Ferretería - " + Session.getCurrentUser().getNombre());
             stage.setScene(scene);
             stage.centerOnScreen();
         } catch (Exception e) {

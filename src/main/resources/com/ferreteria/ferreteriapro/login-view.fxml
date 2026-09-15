@@ -1,39 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.text.Font?>
+<?import javafx.geometry.Insets?>
 
-<VBox alignment="CENTER" spacing="20.0" style="-fx-background-color: #1e1e2e;" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.ferreteria.ferreteriapro.LoginController">
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.ferreteria.ferreteriapro.LoginController" spacing="15" alignment="CENTER" prefWidth="400" prefHeight="500" style="-fx-background-color: linear-gradient(to bottom right, #2c3e50, #4ca1af);">
     <padding>
-        <Insets bottom="40.0" left="40.0" right="40.0" top="40.0" />
+        <Insets top="30" right="40" bottom="30" left="40"/>
     </padding>
-
-    <Label text="FERRETERÍA PRO" textFill="#cba6f7">
-        <font>
-            <Font name="System Bold" size="28.0" />
-        </font>
-    </Label>
+    <Label text="Sistema de Inventario" style="-fx-font-size: 24px; -fx-text-fill: #ffffff; -fx-font-weight: bold;" />
+    <Label text="Ferretería Pro" style="-fx-font-size: 14px; -fx-text-fill: #ecf0f1;" />
     
-    <Label text="Acceso al Sistema" textFill="#a6adc8">
-        <font>
-            <Font size="16.0" />
-        </font>
-    </Label>
-
-    <VBox spacing="10.0">
-        <Label text="Usuario" textFill="#cdd6f4" />
-        <TextField fx:id="txtUsuario" promptText="Ingrese su usuario" style="-fx-background-color: #313244; -fx-text-fill: white; -fx-padding: 10;" />
+    <VBox spacing="5" alignment="CENTER_LEFT">
+        <Label text="Usuario" style="-fx-text-fill: white;" />
+        <TextField fx:id="txtUsuario" promptText="Usuario" style="-fx-pref-height: 35px;" />
     </VBox>
-
-    <VBox spacing="10.0">
-        <Label text="Contraseña" textFill="#cdd6f4" />
-        <PasswordField fx:id="txtPassword" onAction="#onLoginClick" promptText="Ingrese su contraseña" style="-fx-background-color: #313244; -fx-text-fill: white; -fx-padding: 10;" />
-    </VBox>
-
-    <Button fx:id="btnLogin" maxWidth="Infinity" onAction="#onLoginClick" style="-fx-background-color: #cba6f7; -fx-text-fill: #1e1e2e; -fx-font-weight: bold; -fx-padding: 12; -fx-background-radius: 5; -fx-cursor: hand;" text="INICIAR SESIÓN" />
     
-    <Label fx:id="lblMensaje" textFill="#f38ba8" wrapText="true" />
-
+    <VBox spacing="5" alignment="CENTER_LEFT">
+        <Label text="Contraseña" style="-fx-text-fill: white;" />
+        <PasswordField fx:id="txtPassword" promptText="Contraseña" style="-fx-pref-height: 35px;" />
+    </VBox>
+    
+    <Button text="Ingresar" onAction="#onLoginClick" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-pref-width: 150px; -fx-pref-height: 40px; -fx-cursor: hand;" />
+    <Label fx:id="lblMensaje" text="" style="-fx-text-fill: #ff7675; -fx-font-weight: bold;" wrapText="true" />
 </VBox>

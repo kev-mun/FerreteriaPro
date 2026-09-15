@@ -1,0 +1,34 @@
+==================================================
+          FERRETERÍA - CIERRE DE CAJA             
+==================================================
+Fecha y Hora: 2026-06-12 09:03:17
+Transacciones: 1
+--------------------------------------------------
+PRODUCTO                      CANT.     TOTAL ($)
+--------------------------------------------------
+Bisturí profesional mango ca      1         8.500
+==================================================
+               RESUMEN FINANCIERO                 
+--------------------------------------------------
+Ventas Totales (Bruto):                    $ 8.500
+Ventas a Crédito (Fiado):                      $ 0
+Costo de Mercancía:                            $ 0
+UTILIDAD NETA:                             $ 8.500
+--------------------------------------------------
+           DESGLOSE POR MÉTODO DE PAGO            
+          (Incluye Ventas Contado y Abonos)       
+--------------------------------------------------
+Total Abonos Recaudados:                       $ 0
+--------------------------------------------------
+               CUENTAS DE EFECTIVO                
+--------------------------------------------------
+Base Inicial (Mañana):                    $ 20.000
+Efectivo Recaudado Hoy:                    $ 8.500
+Efectivo Esperado Total:                  $ 28.500
+Base Dejada (Mañana):                          $ 0
+EFECTIVO RETIRADO:                        $ 28.500
+--------------------------------------------------
+Total en Bancos (Trans.):                      $ 0
+==================================================
+        Cierre generado correctamente             
+==================================================

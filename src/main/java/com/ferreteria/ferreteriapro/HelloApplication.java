@@ -21,7 +21,7 @@ public class HelloApplication extends Application {
             Scene scene = new Scene(fxmlLoader.load(), 400, 500);
 
             // 4. Configuración visual de la ventana
-            stage.setTitle("Sistema de Inventario - Ferretería pro");
+            stage.setTitle("Sistema de Inventario - Ferretería");
             stage.setScene(scene);
             stage.setMinWidth(800); // Evitamos que la ventana se encoja demasiado
             stage.setMinHeight(600);
