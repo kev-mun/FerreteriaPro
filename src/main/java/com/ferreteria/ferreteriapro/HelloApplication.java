@@ -3,6 +3,7 @@ package com.ferreteria.ferreteriapro;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 import java.io.IOException;
 
@@ -18,13 +19,17 @@ public class HelloApplication extends Application {
             FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("login-view.fxml"));
 
             // 3. Configuramos la escena con un tamaño adecuado para login
-            Scene scene = new Scene(fxmlLoader.load(), 400, 500);
+            Scene scene = new Scene(fxmlLoader.load(), 850, 650);
 
             // 4. Configuración visual de la ventana
             stage.setTitle("Sistema de Inventario - Ferretería");
             stage.setScene(scene);
             stage.setMinWidth(800); // Evitamos que la ventana se encoja demasiado
             stage.setMinHeight(600);
+
+            // Cargar icono de la aplicación
+            Image icon = new Image(getClass().getResourceAsStream("/com/ferreteria/ferreteriapro/icon.png"));
+            stage.getIcons().add(icon);
 
             stage.show();
 

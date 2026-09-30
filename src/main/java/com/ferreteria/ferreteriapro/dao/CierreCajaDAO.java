@@ -38,30 +38,72 @@ public class CierreCajaDAO {
                 stmt.execute("ALTER TABLE cierres_caja ADD COLUMN base_siguiente REAL DEFAULT 0");
             } catch (SQLException ignored) {
             }
+            try {
+                stmt.execute("ALTER TABLE cierres_caja ADD COLUMN fecha_cierre TEXT");
+            } catch (SQLException ignored) {
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
-    /** Guarda (INSERT OR REPLACE) un cierre ya procesado. */
+    /** Guarda o actualiza un cierre ya procesado. */
     public void guardar(CierreCaja c) throws SQLException {
-        String sql = "INSERT OR REPLACE INTO cierres_caja " +
-                "(fecha, total_ventas, total_costos, ganancia, efectivo, transferencia, estado, base_inicial, base_siguiente) "
-                +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String hoy = (c.getFecha() != null && !c.getFecha().isEmpty()) ? c.getFecha() : java.time.LocalDate.now().toString();
+        String hoyHora = java.time.LocalDateTime.now().toString();
+
+        // Buscar si existe un registro para esta fecha
+        String sqlCheck = "SELECT id FROM cierres_caja WHERE fecha = ? OR fecha LIKE ? ORDER BY id DESC LIMIT 1";
+        Integer idExistente = null;
         try (Connection conn = DatabaseConnection.getConnection();
-                PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, c.getFecha());
-            pstmt.setDouble(2, c.getTotalVentas());
-            pstmt.setDouble(3, c.getTotalCostos());
-            pstmt.setDouble(4, c.getGanancia());
-            pstmt.setDouble(5, c.getEfectivo());
-            pstmt.setDouble(6, c.getTransferencia());
-            pstmt.setString(7, c.getEstado());
-            pstmt.setDouble(8, c.getBaseInicial());
-            pstmt.setDouble(9, c.getBaseSiguiente());
-            pstmt.executeUpdate();
+             PreparedStatement ps = conn.prepareStatement(sqlCheck)) {
+            ps.setString(1, hoy);
+            ps.setString(2, hoy + "%");
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    idExistente = rs.getInt("id");
+                }
+            }
+        }
+
+        if (idExistente != null) {
+            String sqlUpdate = "UPDATE cierres_caja SET total_ventas = ?, total_costos = ?, ganancia = ?, " +
+                    "efectivo = ?, transferencia = ?, estado = ?, base_inicial = ?, base_siguiente = ?, fecha_cierre = ? " +
+                    "WHERE id = ?";
+            try (Connection conn = DatabaseConnection.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(sqlUpdate)) {
+                pstmt.setDouble(1, c.getTotalVentas());
+                pstmt.setDouble(2, c.getTotalCostos());
+                pstmt.setDouble(3, c.getGanancia());
+                pstmt.setDouble(4, c.getEfectivo());
+                pstmt.setDouble(5, c.getTransferencia());
+                pstmt.setString(6, c.getEstado() != null ? c.getEstado() : "CERRADO");
+                pstmt.setDouble(7, c.getBaseInicial());
+                pstmt.setDouble(8, c.getBaseSiguiente());
+                pstmt.setString(9, hoyHora);
+                pstmt.setInt(10, idExistente);
+                pstmt.executeUpdate();
+            }
+        } else {
+            String sqlInsert = "INSERT INTO cierres_caja " +
+                    "(fecha, total_ventas, total_costos, ganancia, efectivo, transferencia, estado, base_inicial, base_siguiente, fecha_cierre) "
+                    +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            try (Connection conn = DatabaseConnection.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(sqlInsert)) {
+                pstmt.setString(1, hoy);
+                pstmt.setDouble(2, c.getTotalVentas());
+                pstmt.setDouble(3, c.getTotalCostos());
+                pstmt.setDouble(4, c.getGanancia());
+                pstmt.setDouble(5, c.getEfectivo());
+                pstmt.setDouble(6, c.getTransferencia());
+                pstmt.setString(7, c.getEstado() != null ? c.getEstado() : "CERRADO");
+                pstmt.setDouble(8, c.getBaseInicial());
+                pstmt.setDouble(9, c.getBaseSiguiente());
+                pstmt.setString(10, hoyHora);
+                pstmt.executeUpdate();
+            }
         }
     }
 
@@ -91,14 +133,27 @@ public class CierreCajaDAO {
     }
 
     /**
-     * Retorna el último cierre en estado 'CERRADO' (excluyendo turnos ABIERTOS).
-     * Útil para recuperar la baseSiguiente del día anterior.
+     * Retorna el último cierre en estado 'CERRADO' de un día anterior (excluyendo turnos de hoy).
+     * Útil para recuperar la baseSiguiente del día anterior como sugerencia.
      */
     public CierreCaja obtenerUltimoCierreCerrado() throws SQLException {
-        String sql = "SELECT * FROM cierres_caja WHERE estado = 'CERRADO' ORDER BY id DESC LIMIT 1";
+        String hoy = java.time.LocalDate.now().toString();
+        String sql = "SELECT * FROM cierres_caja WHERE UPPER(COALESCE(estado, '')) IN ('CERRADO', 'CERRADA') " +
+                "AND fecha != ? AND fecha NOT LIKE ? ORDER BY id DESC LIMIT 1";
+        try (Connection conn = DatabaseConnection.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, hoy);
+            ps.setString(2, hoy + "%");
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next())
+                    return mapRow(rs);
+            }
+        }
+        // Fallback: si no hay cierre anterior a hoy, retornar el último cerrado
+        String sqlFallback = "SELECT * FROM cierres_caja WHERE UPPER(COALESCE(estado, '')) IN ('CERRADO', 'CERRADA') ORDER BY id DESC LIMIT 1";
         try (Connection conn = DatabaseConnection.getConnection();
                 Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery(sql)) {
+                ResultSet rs = stmt.executeQuery(sqlFallback)) {
             if (rs.next())
                 return mapRow(rs);
         }
@@ -106,45 +161,71 @@ public class CierreCajaDAO {
     }
 
     /**
-     * Registra un turno con estado ABIERTO al iniciar el día.
+     * Registra o reactiva un turno con estado ABIERTO al iniciar el día.
      * Es idempotente: si ya existe un turno ABIERTO para hoy, no hace nada.
+     * Si existía un registro previo para hoy, lo actualiza a ABIERTO respetando el constraint UNIQUE de fecha.
      */
     public void abrirTurno(double baseInicial) throws SQLException {
+        CierreCaja existente = obtenerTurnoAbierto();
+        if (existente != null) {
+            return; // Ya hay turno abierto para hoy, no duplicar
+        }
+
         String hoy = java.time.LocalDate.now().toString();
-        // Verificar si ya hay un turno ABIERTO para hoy
-        String sqlCheck = "SELECT COUNT(*) FROM cierres_caja WHERE fecha = ? AND estado = 'ABIERTO'";
+
+        // Verificar si ya existe un registro para hoy en la BD (para actualizarlo en vez de fallar por UNIQUE)
+        String sqlCheck = "SELECT id FROM cierres_caja WHERE fecha = ? OR fecha LIKE ? ORDER BY id DESC LIMIT 1";
+        Integer idExistente = null;
         try (Connection conn = DatabaseConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sqlCheck)) {
+             PreparedStatement ps = conn.prepareStatement(sqlCheck)) {
             ps.setString(1, hoy);
+            ps.setString(2, hoy + "%");
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next() && rs.getInt(1) > 0) {
-                    return; // Ya hay turno abierto hoy, no duplicar
+                if (rs.next()) {
+                    idExistente = rs.getInt("id");
                 }
             }
         }
-        String sql = "INSERT INTO cierres_caja " +
-                "(fecha, total_ventas, total_costos, ganancia, efectivo, transferencia, estado, base_inicial, base_siguiente) "
-                +
-                "VALUES (?, 0, 0, 0, 0, 0, 'ABIERTO', ?, ?)";
-        try (Connection conn = DatabaseConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, hoy);
-            ps.setDouble(2, baseInicial);
-            ps.setDouble(3, baseInicial); // base_siguiente provisional
-            ps.executeUpdate();
+
+        if (idExistente != null) {
+            String sqlUpdate = "UPDATE cierres_caja SET estado = 'ABIERTO', base_inicial = ?, base_siguiente = ?, fecha_cierre = NULL WHERE id = ?";
+            try (Connection conn = DatabaseConnection.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sqlUpdate)) {
+                ps.setDouble(1, baseInicial);
+                ps.setDouble(2, baseInicial);
+                ps.setInt(3, idExistente);
+                ps.executeUpdate();
+            }
+        } else {
+            String sqlInsert = "INSERT INTO cierres_caja " +
+                    "(fecha, total_ventas, total_costos, ganancia, efectivo, transferencia, estado, base_inicial, base_siguiente, fecha_cierre) "
+                    +
+                    "VALUES (?, 0, 0, 0, 0, 0, 'ABIERTO', ?, ?, NULL)";
+            try (Connection conn = DatabaseConnection.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sqlInsert)) {
+                ps.setString(1, hoy);
+                ps.setDouble(2, baseInicial);
+                ps.setDouble(3, baseInicial);
+                ps.executeUpdate();
+            }
         }
     }
 
     /**
      * Retorna el turno ABIERTO de hoy (si existe), o null.
-     * Permite detectar cierres accidentales vs. cierres reales.
+     * Busca si existe un registro de apertura de caja para el día de hoy cuyo estado sea ABIERTO/ABIERTA (o fecha_cierre IS NULL).
      */
     public CierreCaja obtenerTurnoAbierto() throws SQLException {
         String hoy = java.time.LocalDate.now().toString();
-        String sql = "SELECT * FROM cierres_caja WHERE fecha = ? AND estado = 'ABIERTO' ORDER BY id DESC LIMIT 1";
+        String sql = "SELECT * FROM cierres_caja " +
+                "WHERE (fecha = ? OR fecha LIKE ?) " +
+                "AND (UPPER(COALESCE(estado, '')) IN ('ABIERTO', 'ABIERTA') OR fecha_cierre IS NULL) " +
+                "AND UPPER(COALESCE(estado, '')) NOT IN ('CERRADO', 'CERRADA') " +
+                "ORDER BY id DESC LIMIT 1";
         try (Connection conn = DatabaseConnection.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, hoy);
+            ps.setString(2, hoy + "%");
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next())
                     return mapRow(rs);
@@ -154,7 +235,7 @@ public class CierreCajaDAO {
     }
 
     private CierreCaja mapRow(ResultSet rs) throws SQLException {
-        return new CierreCaja(
+        CierreCaja c = new CierreCaja(
                 rs.getInt("id"),
                 rs.getString("fecha"),
                 rs.getDouble("total_ventas"),
@@ -165,5 +246,10 @@ public class CierreCajaDAO {
                 rs.getString("estado"),
                 rs.getDouble("base_inicial"),
                 rs.getDouble("base_siguiente"));
+        try {
+            c.setFechaCierre(rs.getString("fecha_cierre"));
+        } catch (SQLException ignored) {
+        }
+        return c;
     }
 }

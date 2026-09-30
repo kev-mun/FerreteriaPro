@@ -11,6 +11,7 @@ public class CierreCaja {
     private String estado;
     private double baseInicial;
     private double baseSiguiente;
+    private String fechaCierre;
 
     // Empty constructor
     public CierreCaja() {
@@ -126,5 +127,13 @@ public class CierreCaja {
 
     public void setBaseSiguiente(double baseSiguiente) {
         this.baseSiguiente = baseSiguiente;
+    }
+
+    public String getFechaCierre() {
+        return fechaCierre;
+    }
+
+    public void setFechaCierre(String fechaCierre) {
+        this.fechaCierre = fechaCierre;
     }
 }

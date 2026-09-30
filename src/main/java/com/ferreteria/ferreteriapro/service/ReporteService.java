@@ -23,12 +23,7 @@ public class ReporteService {
 
         // 1. Generar Reporte PDF
         String fechaActual = java.time.LocalDate.now().toString();
-        String proyectoRoot = System.getProperty("user.dir");
-        File carpeta = new File(proyectoRoot, "reportes/compras");
-        if (!carpeta.exists()) {
-            carpeta.mkdirs();
-        }
-
+        File carpeta = com.ferreteria.ferreteriapro.AppPaths.getReportesDir("compras");
         File archivoReporte = new File(carpeta, "reporte_compras_" + fechaActual + ".pdf");
 
         Document document = new Document();
@@ -98,6 +93,14 @@ public class ReporteService {
 
     public CierreCaja obtenerUltimoCierre() throws Exception {
         return cierreCajaDAO.obtenerUltimoCierre();
+    }
+
+    public CierreCaja obtenerTurnoAbierto() throws Exception {
+        return cierreCajaDAO.obtenerTurnoAbierto();
+    }
+
+    public CierreCaja obtenerUltimoCierreCerrado() throws Exception {
+        return cierreCajaDAO.obtenerUltimoCierreCerrado();
     }
 
     public void abrirTurno(double baseInicial) throws Exception {

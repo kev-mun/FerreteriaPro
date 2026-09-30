@@ -174,6 +174,14 @@ public class InventarioService {
         return reporteService.obtenerUltimoCierre();
     }
 
+    public CierreCaja obtenerTurnoAbierto() throws Exception {
+        return reporteService.obtenerTurnoAbierto();
+    }
+
+    public CierreCaja obtenerUltimoCierreCerrado() throws Exception {
+        return reporteService.obtenerUltimoCierreCerrado();
+    }
+
     public void abrirTurno(double baseInicial) throws Exception {
         reporteService.abrirTurno(baseInicial);
     }

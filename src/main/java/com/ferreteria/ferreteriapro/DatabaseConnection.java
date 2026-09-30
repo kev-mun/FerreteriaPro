@@ -6,7 +6,13 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 public class DatabaseConnection {
-    private static final String URL = "jdbc:sqlite:ferreteria_nueva.db";
+
+    private static final String DB_PATH = AppPaths.getDatabaseFile().getAbsolutePath();
+    private static final String URL = "jdbc:sqlite:" + DB_PATH;
+
+    public static String getDatabasePath() {
+        return DB_PATH;
+    }
 
     public static Connection getConnection() throws SQLException {
         Connection conn = DriverManager.getConnection(URL);
@@ -220,6 +226,18 @@ public class DatabaseConnection {
 
             stmt.execute("PRAGMA journal_mode = WAL;");
             stmt.execute("PRAGMA synchronous = NORMAL;");
+
+            // Crear tabla de consumos internos (salidas por uso propio, muestras, daños)
+            stmt.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS consumos_internos (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        producto_codigo TEXT NOT NULL,
+                        cantidad INTEGER NOT NULL,
+                        motivo TEXT NOT NULL,
+                        usuario_id TEXT,
+                        fecha DATETIME DEFAULT CURRENT_TIMESTAMP
+                    );
+                    """);
 
             System.out.println("✅ Base de datos configurada correctamente.");
 

@@ -171,7 +171,10 @@ public class HelloController {
             configurarBuscadorClientes();
             nuevoRegistro();
 
-            // Verificar la base inicial del día anterior
+            // Cargar ventas del día activas en la tabla/acumulado
+            actualizarHistorial();
+
+            // Verificar si hay caja activa hoy o solicitar apertura
             Platform.runLater(this::verificarBaseInicial);
         } catch (Exception e) {
             System.err.println("❌ Error en initialize de HelloController: " + e.getMessage());
@@ -212,7 +215,7 @@ public class HelloController {
         try {
             Stage stage = (Stage) mainTabPane.getScene().getWindow();
             FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("login-view.fxml"));
-            Scene scene = new Scene(fxmlLoader.load(), 400, 500);
+            Scene scene = new Scene(fxmlLoader.load(), 850, 650);
             stage.setTitle("Login - Ferretería");
             stage.setScene(scene);
             stage.centerOnScreen();
@@ -828,10 +831,7 @@ public class HelloController {
             return;
 
         String fecha = LocalDate.now().toString();
-        File carpeta = new File("reportes/ordenes");
-        if (!carpeta.exists())
-            carpeta.mkdirs();
-
+        File carpeta = AppPaths.getReportesDir("ordenes");
         File archivo = new File(carpeta, "orden_compra_" + fecha + ".txt");
 
         try (PrintWriter out = new PrintWriter(new FileWriter(archivo))) {
@@ -1129,9 +1129,7 @@ public class HelloController {
         String fecha = LocalDate.now().toString();
         String idNC = "NC-" + System.currentTimeMillis();
 
-        File carpeta = new File("facturas/notas_credito");
-        if (!carpeta.exists())
-            carpeta.mkdirs();
+        File carpeta = AppPaths.getFacturasSubdir("notas_credito");
         File archivo = new File(carpeta, idNC + ".txt");
 
         try (PrintWriter out = new PrintWriter(new FileWriter(archivo))) {
@@ -1370,9 +1368,7 @@ public class HelloController {
             service.archivarVentasYReiniciar(todas);
 
             // 4. Generar reporte físico
-            File carpeta = new File("reportes/cierres_diarios");
-            if (!carpeta.exists())
-                carpeta.mkdirs();
+            File carpeta = AppPaths.getReportesDir("cierres_diarios");
             File archivo = new File(carpeta, "cierre_" + hoy + ".txt");
 
             // Agrupar ventas por producto para el reporte detallado
@@ -1452,10 +1448,12 @@ public class HelloController {
             return true;
         }
         try {
-            CierreCaja ultimo = service.obtenerUltimoCierre();
-            if (ultimo != null && "ABIERTO".equalsIgnoreCase(ultimo.getEstado())) {
+            CierreCaja turno = service.obtenerTurnoAbierto();
+            if (turno != null && ("ABIERTO".equalsIgnoreCase(turno.getEstado())
+                    || "ABIERTA".equalsIgnoreCase(turno.getEstado())
+                    || turno.getFechaCierre() == null)) {
                 this.cajaAbierta = true;
-                this.baseInicial = ultimo.getBaseInicial();
+                this.baseInicial = turno.getBaseInicial();
                 return true;
             }
         } catch (Exception e) {
@@ -1469,23 +1467,30 @@ public class HelloController {
 
     private void verificarBaseInicial() {
         try {
-            CierreCaja ultimo = service.obtenerUltimoCierre();
+            // 1. Verificar si ya existe un turno ABIERTO para el día de hoy
+            CierreCaja turnoAbierto = service.obtenerTurnoAbierto();
 
-            if (ultimo != null && "ABIERTO".equalsIgnoreCase(ultimo.getEstado())) {
-                this.baseInicial = ultimo.getBaseInicial();
+            if (turnoAbierto != null && ("ABIERTO".equalsIgnoreCase(turnoAbierto.getEstado())
+                    || "ABIERTA".equalsIgnoreCase(turnoAbierto.getEstado())
+                    || turnoAbierto.getFechaCierre() == null)) {
+                this.baseInicial = turnoAbierto.getBaseInicial();
                 this.cajaAbierta = true;
-                System.out.println("✅ El turno ya se encuentra ABIERTO con base inicial: $" + this.baseInicial);
+                actualizarHistorial();
+                System.out.println("✅ El turno ya se encuentra ABIERTO para hoy con base inicial: $" + this.baseInicial);
                 return; // Ingreso directo al panel principal con normalidad
             }
 
-            // Si está CERRADO o no hay cierres anteriores: modal obligatorio de apertura
-            double sugerido = (ultimo != null && ultimo.getBaseSiguiente() > 0) ? ultimo.getBaseSiguiente() : 30000;
+            // 2. Si no hay turno abierto para hoy, recuperar el último cierre CERRADO para sugerir la base
+            CierreCaja ultimoCerrado = service.obtenerUltimoCierreCerrado();
+            double sugerido = (ultimoCerrado != null && ultimoCerrado.getBaseSiguiente() > 0)
+                    ? ultimoCerrado.getBaseSiguiente()
+                    : 30000;
             boolean confirmado = false;
 
             while (!confirmado) {
                 TextInputDialog dialog = new TextInputDialog(String.format("%.0f", sugerido));
                 dialog.setTitle("Apertura de Caja Obligatoria");
-                dialog.setHeaderText("La caja se encuentra CERRADA.\nIngrese la Base Inicial en efectivo para abrir el turno:");
+                dialog.setHeaderText("La caja se encuentra CERRADA para la jornada de hoy.\nIngrese la Base Inicial en efectivo para abrir el turno:");
                 dialog.setContentText("Saldo base en efectivo ($):");
 
                 Optional<String> res = dialog.showAndWait();
@@ -1503,11 +1508,13 @@ public class HelloController {
                     }
                     this.cajaAbierta = true;
                     confirmado = true;
+                    actualizarHistorial();
 
                     Alert alertOk = new Alert(Alert.AlertType.INFORMATION);
                     alertOk.setTitle("Apertura Exitosa");
                     alertOk.setHeaderText(null);
-                    alertOk.setContentText("✅ Caja abierta correctamente con base inicial: $" + String.format("%,.0f", this.baseInicial) + " COP.");
+                    alertOk.setContentText("✅ Caja abierta correctamente con base inicial: $"
+                            + String.format("%,.0f", this.baseInicial) + " COP.");
                     alertOk.showAndWait();
                 } else {
                     Alert confirmSalir = new Alert(Alert.AlertType.CONFIRMATION);
@@ -1871,9 +1878,7 @@ public class HelloController {
     private void generarTicketAbono(Abono abono, Cliente cliente, double montoAbono) {
         String idRecibo = "ABN-" + System.currentTimeMillis();
 
-        File carpeta = new File("facturas/abonos");
-        if (!carpeta.exists())
-            carpeta.mkdirs();
+        File carpeta = AppPaths.getFacturasSubdir("abonos");
         File archivoPdf = new File(carpeta, idRecibo + ".pdf");
 
         try {

@@ -1,26 +1,115 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.*?>
 
-<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.ferreteria.ferreteriapro.LoginController" spacing="15" alignment="CENTER" prefWidth="400" prefHeight="500" style="-fx-background-color: linear-gradient(to bottom right, #2c3e50, #4ca1af);">
-    <padding>
-        <Insets top="30" right="40" bottom="30" left="40"/>
-    </padding>
-    <Label text="Sistema de Inventario" style="-fx-font-size: 24px; -fx-text-fill: #ffffff; -fx-font-weight: bold;" />
-    <Label text="Ferretería Pro" style="-fx-font-size: 14px; -fx-text-fill: #ecf0f1;" />
-    
-    <VBox spacing="5" alignment="CENTER_LEFT">
-        <Label text="Usuario" style="-fx-text-fill: white;" />
-        <TextField fx:id="txtUsuario" promptText="Usuario" style="-fx-pref-height: 35px;" />
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.ferreteria.ferreteriapro.LoginController"
+      stylesheets="@styles.css"
+      styleClass="login-canvas"
+      alignment="TOP_CENTER"
+      prefWidth="850" prefHeight="650">
+
+    <!-- BARRA SUPERIOR (HEADER STATUS) -->
+    <HBox styleClass="login-top-bar" alignment="CENTER_LEFT" spacing="12">
+        <HBox alignment="CENTER_LEFT" spacing="8" HBox.hgrow="ALWAYS">
+            <ImageView fitWidth="22" fitHeight="22" preserveRatio="true">
+                <image>
+                    <Image url="@icon.png"/>
+                </image>
+            </ImageView>
+            <Label text="Ferretería Pro" style="-fx-text-fill: #ffffff; -fx-font-size: 15px; -fx-font-weight: bold;"/>
+            <Label text="ENTERPRISE POS" styleClass="login-badge"/>
+        </HBox>
+        <HBox alignment="CENTER_RIGHT" spacing="12">
+            <HBox alignment="CENTER" spacing="6" styleClass="login-server-pill">
+                <Label text="●" style="-fx-text-fill: #10b981; -fx-font-size: 12px;"/>
+                <Label text="Servidor Central Conectado" style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;"/>
+            </HBox>
+            <Label text="v2.4.0 (Build 2026)" styleClass="login-server-pill"/>
+        </HBox>
+    </HBox>
+
+    <!-- ÁREA CENTRAL CON TARJETA DE LOGIN -->
+    <VBox alignment="CENTER" VBox.vgrow="ALWAYS">
+        <padding>
+            <Insets top="20" right="20" bottom="20" left="20"/>
+        </padding>
+
+        <!-- TARJETA DE LOGIN -->
+        <VBox maxWidth="440" styleClass="login-card">
+            <!-- Franja superior degradada -->
+            <Region styleClass="login-card-stripe"/>
+
+            <!-- Contenido interno de la tarjeta -->
+            <VBox spacing="18" alignment="CENTER">
+                <padding>
+                    <Insets top="28" right="36" bottom="32" left="36"/>
+                </padding>
+
+                <!-- Icono y Títulos -->
+                <VBox alignment="CENTER" spacing="8">
+                    <StackPane styleClass="login-icon-box" maxWidth="64" maxHeight="64">
+                        <ImageView fitWidth="40" fitHeight="40" preserveRatio="true">
+                            <image>
+                                <Image url="@icon.png"/>
+                            </image>
+                        </ImageView>
+                    </StackPane>
+
+                    <Label text="Sistema de Inventario" styleClass="login-title"/>
+                    
+                    <HBox alignment="CENTER" spacing="6">
+                        <Label text="Ferretería Pro" styleClass="login-subtitle"/>
+                        <Label text="•" style="-fx-text-fill: #64748b;"/>
+                        <Label text="Acceso a Terminal POS" style="-fx-text-fill: #94a3b8; -fx-font-size: 12px;"/>
+                    </HBox>
+
+                    <Label text="Ingresa tus credenciales autorizadas para acceder al punto de venta y catálogo."
+                           style="-fx-text-fill: #94a3b8; -fx-font-size: 11px; -fx-text-alignment: center;"
+                           wrapText="true" maxWidth="350"/>
+                </VBox>
+
+                <!-- Campos de Formulario -->
+                <VBox spacing="14" alignment="CENTER_LEFT" maxWidth="380">
+                    <!-- Campo Usuario -->
+                    <VBox spacing="5" alignment="CENTER_LEFT">
+                        <Label text="USUARIO" styleClass="login-field-label"/>
+                        <TextField fx:id="txtUsuario" promptText="Ej: admin o vendedor" styleClass="login-input"/>
+                    </VBox>
+
+                    <!-- Campo Contraseña -->
+                    <VBox spacing="5" alignment="CENTER_LEFT">
+                        <HBox alignment="CENTER_LEFT">
+                            <Label text="CONTRASEÑA" styleClass="login-field-label"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Label text="Terminal: Caja #01" style="-fx-text-fill: #64748b; -fx-font-size: 10px; -fx-font-family: monospace;"/>
+                        </HBox>
+                        <PasswordField fx:id="txtPassword" promptText="••••••••" onAction="#onLoginClick" styleClass="login-input"/>
+                    </VBox>
+
+                    <!-- Botón de Ingreso -->
+                    <VBox spacing="8" alignment="CENTER" style="-fx-padding: 8 0 0 0;">
+                        <Button text="INGRESAR AL SISTEMA  ➔" onAction="#onLoginClick"
+                                maxWidth="Infinity" styleClass="login-btn-primary"/>
+                    </VBox>
+
+                    <!-- Etiqueta de Mensajes / Errores -->
+                    <Label fx:id="lblMensaje" text="" alignment="CENTER" maxWidth="Infinity"
+                           style="-fx-text-fill: #f87171; -fx-font-weight: bold; -fx-font-size: 12px; -fx-text-alignment: center;"
+                           wrapText="true"/>
+                </VBox>
+            </VBox>
+        </VBox>
     </VBox>
-    
-    <VBox spacing="5" alignment="CENTER_LEFT">
-        <Label text="Contraseña" style="-fx-text-fill: white;" />
-        <PasswordField fx:id="txtPassword" promptText="Contraseña" style="-fx-pref-height: 35px;" />
-    </VBox>
-    
-    <Button text="Ingresar" onAction="#onLoginClick" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-pref-width: 150px; -fx-pref-height: 40px; -fx-cursor: hand;" />
-    <Label fx:id="lblMensaje" text="" style="-fx-text-fill: #ff7675; -fx-font-weight: bold;" wrapText="true" />
+
+    <!-- PIE DE PÁGINA MINIMALISTA -->
+    <HBox alignment="CENTER" style="-fx-padding: 12 20;">
+        <Label text="Ferretería Pro Enterprise POS  •  Sistema de Gestión y Facturación Segura"
+               style="-fx-text-fill: #475569; -fx-font-size: 11px;"/>
+    </HBox>
+
 </VBox>

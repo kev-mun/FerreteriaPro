@@ -571,9 +571,7 @@ public class VentaFlotanteController {
         String fecha = java.time.LocalDate.now().toString();
         String idFactura = "FAC-" + System.currentTimeMillis();
 
-        java.io.File carpeta = new java.io.File("facturas");
-        if (!carpeta.exists())
-            carpeta.mkdir();
+        java.io.File carpeta = AppPaths.getFacturasDir();
         java.io.File archivo = new java.io.File(carpeta, idFactura + ".txt");
 
         try (java.io.PrintWriter out = new java.io.PrintWriter(new java.io.FileWriter(archivo))) {

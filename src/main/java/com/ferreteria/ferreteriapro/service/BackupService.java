@@ -1,5 +1,6 @@
 package com.ferreteria.ferreteriapro.service;
 
+import com.ferreteria.ferreteriapro.AppPaths;
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
 
@@ -13,12 +14,12 @@ import java.time.format.DateTimeFormatter;
 
 public class BackupService {
 
-    // Archivo de la base de datos a respaldar (nombre relativo al directorio de ejecución)
+    // Archivo de la base de datos a respaldar (nombre por defecto)
     private static final String DB_FILENAME = "ferreteria_nueva.db";
 
-    // Carpetas de respaldo (nombres de directorio)
-    private static final String NOMBRE_CARPETA_DRIVE = "backups_drive";
-    private static final String NOMBRE_CARPETA_PENDIENTES = "backups_pendientes_usb";
+    // Carpetas de respaldo locales dentro de %APPDATA%/FerreteriaPro/backups/
+    private static final String NOMBRE_CARPETA_DRIVE = "drive";
+    private static final String NOMBRE_CARPETA_PENDIENTES = "pendientes_usb";
 
     // Ruta de la USB destino (configurable)
     private static final String CARPETA_USB = "E:/BackupsFerreteria";
@@ -31,16 +32,14 @@ public class BackupService {
      */
     public void realizarRespaldoHibridoAsync() {
         Thread hiloBackup = new Thread(() -> {
-            // Raíz dinámica del proyecto donde se ejecuta la aplicación
-            String projectRoot = System.getProperty("user.dir");
-
-            // Creación automática de directorios usando la raíz dinámica
-            File carpetaDrive = new File(projectRoot, NOMBRE_CARPETA_DRIVE);
+            // Carpetas de respaldo locales dentro de %APPDATA%/FerreteriaPro/backups/
+            File carpetaBackups = AppPaths.getBackupsDir();
+            File carpetaDrive = new File(carpetaBackups, NOMBRE_CARPETA_DRIVE);
             if (!carpetaDrive.exists()) {
                 carpetaDrive.mkdirs();
             }
 
-            File carpetaPendientes = new File(projectRoot, NOMBRE_CARPETA_PENDIENTES);
+            File carpetaPendientes = new File(carpetaBackups, NOMBRE_CARPETA_PENDIENTES);
             if (!carpetaPendientes.exists()) {
                 carpetaPendientes.mkdirs();
             }
@@ -48,10 +47,14 @@ public class BackupService {
             String fechaHora = LocalDateTime.now().format(TIMESTAMP_FORMATTER);
             String nombreArchivo = "ferreteria_backup_" + fechaHora + ".db";
 
-            File archivoOrigen = new File(projectRoot, DB_FILENAME);
+            // Buscar primero en la ruta estándar de AppData
+            File archivoOrigen = AppPaths.getDatabaseFile();
             if (!archivoOrigen.exists()) {
-                // Fallback por si la DB está en la raíz directa de trabajo
-                archivoOrigen = new File(DB_FILENAME);
+                // Fallback por si la DB está en la raíz directa de trabajo (modo dev)
+                File archivoFallback = new File(System.getProperty("user.dir"), DB_FILENAME);
+                if (archivoFallback.exists()) {
+                    archivoOrigen = archivoFallback;
+                }
             }
 
             if (!archivoOrigen.exists()) {
@@ -59,7 +62,7 @@ public class BackupService {
                 Platform.runLater(() -> mostrarAlerta(
                         Alert.AlertType.ERROR,
                         "Error de Respaldo",
-                        "No se encontró el archivo de base de datos: " + rutaBuscada));
+                        "No se encontró el archivo de base de datos en: " + rutaBuscada));
                 return;
             }
 
